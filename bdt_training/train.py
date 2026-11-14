@@ -155,11 +155,15 @@ def read_pool(selected_root: Path, era: str, topology: str):
 
 def run_training(selected_root: Path, output_root: Path, era: str,
                  topology: str, dry_run: bool = False):
+    variant = TRAINING["model_variants"][topology]
+    target = output_root / "models" / era / topology / variant
+    if target.exists() and not dry_run:
+        raise FileExistsError(f"model bank already exists: {target}")
     x, y, absw, fold, mass, decay, family = read_pool(selected_root, era, topology)
     global_weights = balance(y, absw, mass, decay, family)
     counts = [int(np.count_nonzero(fold == i)) for i in range(N_FOLDS)]
-    print(f"{era}/{topology}: N={len(y):,}; signal={sum(y):,}; "
-          f"background={len(y)-sum(y):,}; fold_counts={counts}", flush=True)
+    print(f"{era}/{topology}: N={len(y):,}; signal={np.count_nonzero(y):,}; "
+          f"background={len(y)-np.count_nonzero(y):,}; fold_counts={counts}", flush=True)
     print(f"global balanced weights: S={np.sum(global_weights[y == 1]):.6g} "
           f"B={np.sum(global_weights[y == 0]):.6g}", flush=True)
     # Even in --dry-run, validate every fold has all three prompt families,
@@ -172,10 +176,6 @@ def run_training(selected_root: Path, output_root: Path, era: str,
         print("PASS: complete training pool and five-fold contract", flush=True)
         return
 
-    variant = TRAINING["model_variants"][topology]
-    target = output_root / "models" / era / topology / variant
-    if target.exists():
-        raise FileExistsError(f"model bank already exists: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = Path(tempfile.mkdtemp(prefix=f".{variant}-", dir=target.parent))
     try:
@@ -211,7 +211,7 @@ def run_training(selected_root: Path, output_root: Path, era: str,
             "era": era, "topology": topology, "variant": variant,
             "fold_rule": "event_uid % 5", "n_folds": N_FOLDS,
             "training_events": len(y), "fold_counts": counts,
-            "signal_events": int(sum(y)), "background_events": int(len(y)-sum(y)),
+            "signal_events": int(np.count_nonzero(y)), "background_events": int(len(y)-np.count_nonzero(y)),
             "features": features,
             "features_sha256": hashlib.sha256(
                 ("\n".join(features) + "\n").encode()).hexdigest(),
