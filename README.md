@@ -65,6 +65,43 @@ backgrounds and signals in both eras. The resulting ROOT `events` tree retains
 and the final 20 resolved/25 boosted BDT input variables. The original\nentry index allows later cross-checks against nominal and varied trees. A `.selection.json`
 report provides category counts, signed yields, and exact count closure.
 
+### Full campaign (16 signals + 10 prompt backgrounds per era)
+
+```bash
+python -m bbll.campaign \
+  --input-root /path/to/bbll_samples \
+  --output-root /path/to/selected \
+  --era run3 \
+  --resume
+```
+
+Repeat with `--era run2`. `--resume` validates both existing ROOT and
+per-sample JSON outputs before reusing them, so completed samples are not
+regenerated after an interruption.
+
+For a **one-time, exact comparison** with the older validated reduction, add:
+
+```bash
+  --reference-dir /path/to/previous/reduced
+```
+
+This verifies event order, IDs, signed weights, fit observable, and every
+frozen BDT input for the resolved and boosted samples. The reference directory
+is optional: a third-party reproduction does not depend on the older repo.
+
+Reference selected-event counts (not physical yields) from the validated
+reduction:
+
+| Era | Resolved | Boosted |
+|---|---:|---:|
+| Run 2 | 8,891,378 | 6,294,727 |
+| Run 3 | 8,899,170 | 6,225,647 |
+
+The campaign writes `<output-root>/<era>/selection_campaign.json` with
+per-sample and combined counts. The `source_entry` field identifies the
+entry index in the **input Analysis_NOSYS tree** (not necessarily the original
+generator or raw-Delphes entry).
+
 Input and output paths are CLI arguments: no AF, lxplus, EOS, AFS, Condor,
 or hostname assumptions are embedded in the code. Large ROOT inputs and model
 artifacts are intentionally not stored in this repository.
