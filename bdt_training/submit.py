@@ -7,6 +7,7 @@ The submit file uses absolute paths supplied by the caller, not site defaults.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -29,7 +30,7 @@ def build_submit(repo: Path, python: Path, selected: Path,
 initialdir = {repo}
 executable = {python}
 arguments = -m bdt_training.train $(era) $(topology) --selected-root {selected} --output-root {output}
-getenv = True
+getenv = False
 environment = "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1"
 should_transfer_files = NO
 request_cpus = {int(cfg['cpus'])}
@@ -66,6 +67,14 @@ def main():
     path.write_text(spec)
     print(f"HTCondor submit file: {path}", flush=True)
     if a.submit:
+        # Validate the actual Python used by worker jobs, not the login shell.
+        clean_env = dict(os.environ)
+        clean_env.pop("PYTHONPATH", None)
+        clean_env.pop("PYTHONHOME", None)
+        subprocess.run(
+            [str(interpreter), "-m", "bdt_training.environment"],
+            cwd=str(repo), env=clean_env, check=True,
+        )
         if shutil.which("condor_submit") is None:
             raise RuntimeError("condor_submit unavailable; run locally or submit from a Condor login node")
         subprocess.run(["condor_submit", str(path)], check=True)
