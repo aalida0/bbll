@@ -51,10 +51,17 @@ def balance(y, absw, mass, decay, family):
         w[m] = absw[m] / total
     w[bkg] /= np.sum(w[bkg], dtype=np.float64)
 
+    # The ntuple's decay codes are labels, not necessarily 0/1/2.
+    # Keep the frozen requirement: 16 masses × 3 decay modes = 48 cells.
+    decay_ids = sorted(np.unique(decay[sig]).tolist())
     cells = sorted(set(zip(mass[sig].tolist(), decay[sig].tolist())))
-    required = {(m, d) for m in SIGNAL_MASSES for d in (0, 1, 2)}
-    if set(cells) != required:
-        raise ValueError(f"signal mass×decay coverage incomplete: missing={sorted(required - set(cells))}")
+    required = {(m, d) for m in SIGNAL_MASSES for d in decay_ids}
+    if len(decay_ids) != 3 or set(cells) != required:
+        raise ValueError(
+            "signal mass×decay coverage incomplete: "
+            f"decay_ids={decay_ids}, missing={sorted(required - set(cells))}, "
+            f"extra={sorted(set(cells) - required)}"
+        )
     for signal_mass, decay_id in cells:
         m = sig & (mass == signal_mass) & (decay == decay_id)
         total = np.sum(absw[m], dtype=np.float64)
@@ -163,6 +170,8 @@ def run_training(selected_root: Path, output_root: Path, era: str,
     x, y, absw, fold, mass, decay, family = read_pool(selected_root, era, topology)
     global_weights = balance(y, absw, mass, decay, family)
     counts = [int(np.count_nonzero(fold == i)) for i in range(N_FOLDS)]
+    decay_ids = sorted(np.unique(decay[y == 1]).tolist())
+    print(f"signal decay IDs: {decay_ids} (48 mass×decay cells)", flush=True)
     print(f"{era}/{topology}: N={len(y):,}; signal={np.count_nonzero(y):,}; "
           f"background={len(y)-np.count_nonzero(y):,}; fold_counts={counts}", flush=True)
     print(f"global balanced weights: S={np.sum(global_weights[y == 1]):.6g} "
@@ -211,6 +220,7 @@ def run_training(selected_root: Path, output_root: Path, era: str,
         payload = {
             "era": era, "topology": topology, "variant": variant,
             "fold_rule": "event_uid % 5", "n_folds": N_FOLDS,
+            "signal_decay_ids": decay_ids,
             "training_events": len(y), "fold_counts": counts,
             "signal_events": int(np.count_nonzero(y)), "background_events": int(len(y)-np.count_nonzero(y)),
             "features": features,
