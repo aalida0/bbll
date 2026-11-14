@@ -499,7 +499,7 @@ anchors to the best **two-channel** shortlisted candidate and:
   between inclusive and partitioned boosted events;
 - coarsens only **common** boosted \(m_T(HH)\) edges when necessary to
   satisfy the original per-bin positive-background, \(N_eff >= 10\),
-  minimum-two-bin and nonnegative-signal requirements in both tags;
+  configurable one-/two-bin and nonnegative-signal requirements in both tags;
 - recomputes both CLs limits using the **same thresholds and edges**.
   Only the category partition and associated per-channel shapesys
   nuisance structure differ.
@@ -528,3 +528,31 @@ invalid limit. A successful matched comparison records
 \`PASS_MATCHED_SPLIT_CONTROL\`. This is still a **prompt-only**
 diagnostic; fake backgrounds, full correlated nuisance parameters
 and final normalization checks remain required.
+
+#### One-bin option for the matched-split control
+
+The one-bin fallback is configured **only** in `sr_optimization/config.yaml`:
+
+```yaml
+# Keep the frozen candidate screen and original pyhf comparisons at 2 bins.
+minimum_mt_bins: 2
+
+# This separate setting applies only to matched_split_control:
+matched_split_control:
+  minimum_mt_bins: 1  # 1 allows cut-and-count; use 2 for shape-only
+```
+
+Allowing one bin is a **minimum**, not a command to force every category to
+one bin. The matching algorithm retains two or more bins whenever they pass
+the signed-background guards. If necessary, it merges the same boosted edges
+for inclusive boosted, 1-tag, and 2-tag, down to one bin.
+
+If a single boosted bin is retained, it is a cut-and-count contribution with
+**no boosted mT(HH) shape information**. Both subchannels still must have
+positive signed-background yields and `N_eff >= 10`. A total 2-tag
+`N_eff < 10` will **still fail** after all bins are merged.
+
+The resulting JSON explicitly records `minimum_boosted_mt_bins_configured`,
+`boosted_cut_and_count`, and the final common bin edges. The former Run-2
+3000 GeV 2-bin output is preserved; rerun the same command after `git pull`
+to produce the new `_minbin1.json` file.
