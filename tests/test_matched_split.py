@@ -89,3 +89,75 @@ def test_refuses_matched_comparison_if_split_cannot_retain_two_bins():
     assert out["status"] == "NOT_COMPARABLE_UNDER_FROZEN_GUARDS"
     assert len(out["edges"]) - 1 == 2
     assert any("boosted_2tag" in s for s in out["reasons"])
+
+
+
+def test_matched_control_recomputes_both_architectures_with_identical_bins(
+        tmp_path, monkeypatch):
+    import json
+    import sr_optimization.matched_split_control as control
+
+    era, mass, shortlist = "run3", 600, 3
+    folder = tmp_path / "sr_optimization" / era / f"m{mass}"
+    folder.mkdir(parents=True)
+    screen_path = folder / "prompt_candidate_screen.json"
+    screen_path.write_text("{}")
+    comparison = folder / "prompt_pyhf_top3.json"
+    comparison.write_text(json.dumps({
+        "architectures": {"two_channel": {"best": {"candidates": {
+            "resolved": {"index": 0, "score_threshold": 0.5},
+            "boosted": {"index": 0, "score_threshold": 0.5},
+        }}}}
+    }))
+    data = input_events(tag1=(40, 40, 40), tag2=(5, 5, 40))
+    edges = [0., 500., 1000., 2000.]
+    boosted = boosted_histograms(data, era, mass, 0.5, edges)["boosted"]
+    b_row = {
+        "channel": "boosted", "score_threshold": 0.5,
+        "edges_GeV": edges,
+        "signal_bins": boosted["s"].tolist(),
+        "signal_sumw2_bins": boosted["s2"].tolist(),
+        "background_bins": boosted["b"].tolist(),
+        "background_sumw2_bins": boosted["b2"].tolist(),
+        "signal_yield": float(np.sum(boosted["s"])),
+        "background_yield": float(np.sum(boosted["b"])),
+        "n_mt_bins": 3, "min_background_neff": 45.0,
+    }
+    resolved = dict(b_row, channel="resolved")
+
+    monkeypatch.setattr(control, "validate_existing_screen",
+                        lambda src, era, mass: {
+                            "candidates": {
+                                "resolved": [resolved],
+                                "boosted": [b_row],
+                            },
+                        })
+    monkeypatch.setattr(control, "validate_comparison",
+                        lambda root, era, mass, shortlist: {
+                            "file": str(comparison),
+                            "sha256": "unit_fixture",
+                            "two_channel_mu95": 10.0,
+                        })
+    monkeypatch.setattr(control, "load_scores",
+                        lambda root, era, topology: data)
+    calls = []
+
+    def fake_limit(rows, mu_max):
+        channels = tuple(r["channel"] for r in rows)
+        calls.append((channels, [r["edges_GeV"] for r in rows]))
+        return (10.0 if "boosted" in channels else 8.0), "mock"
+
+    monkeypatch.setattr(control, "expected_mu95", fake_limit)
+    result = control.compare_matched(tmp_path, era, mass)
+    assert result["status"] == "PASS_MATCHED_SPLIT_CONTROL"
+    assert result["common_boosted_mt_edges_GeV"] == [0., 1000., 2000.]
+    assert result["coarsened_boundaries_GeV"] == [500.]
+    assert result["percent_limit_reduction"] == pytest.approx(20.0)
+    assert [c[0] for c in calls] == [
+        ("resolved", "boosted"),
+        ("resolved", "boosted"),
+        ("resolved", "boosted_1tag", "boosted_2tag"),
+    ]
+    assert calls[-2][1][1] == calls[-1][1][1] == calls[-1][1][2]
+    with pytest.raises(FileExistsError):
+        control.compare_matched(tmp_path, era, mass)
