@@ -438,3 +438,44 @@ and detector/theory systematics are absent.** The result reports
 as fb until generator/sidecar signal normalization has been independently
 certified. Any failed fit makes the result \`INCOMPLETE\` and suppresses
 the architecture ratio. The full publication inference remains separate.
+
+
+### Two-era prompt-only CLs mass campaign (HTCondor)
+
+After completing the 600 and 4000 GeV pilot, reuse those results and
+submit the **missing** combinations of both eras and all 16 mass points:
+
+\`\`\`bash
+cd ~/bbll
+git pull --ff-only
+source .venv39/bin/activate
+python -m pip install -e ".[stats]"
+python -m sr_optimization.submit \
+  --era both --shortlist 3 \
+  --output-root /data/aalida/bbll_rerun_20261114 --submit
+\`\`\`
+
+The submitter requires all 32 prompt SR screen inputs, validates
+previously completed fit outputs against their input SHA-256, and
+skips complete pilot points. Any stale or incomplete existing fit
+must be inspected; it is **never** overwritten automatically.
+HTCondor transfers only the launcher, avoids FileSystemDomain
+matching constraints, and logs under \`<repo>/condor/logs\` on
+\`/home\` rather than \`/data\`. Worker scripts never use
+\`set -e\` or \`set -u\`.
+
+After \`condor_q $USER\` shows all fits completed, generate the
+strict full-campaign summary:
+
+\`\`\`bash
+python -m sr_optimization.aggregate \
+  --era both --shortlist 3 \
+  --output-root /data/aalida/bbll_rerun_20261114
+\`\`\`
+
+The aggregate refuses missing or incomplete fits, checks architecture
+exclusivity and the input-screen hashes, and emits
+\`sr_optimization/prompt_pyhf_top3_campaign.json\`, including a
+mass-by-mass table of the two-/three-channel ratio and its corresponding
+percentage reduction in the expected upper limit. The architecture
+comparison remains prompt-only and **not** publication-ready.
