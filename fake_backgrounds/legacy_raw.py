@@ -141,7 +141,9 @@ def score_hypothesis(hypothesis, uid, banks):
     vector = np.asarray([[float(obs[name]) for name in features]], dtype=np.float32)
     if np.any(np.isinf(vector)):
         raise ValueError("infinite FakeSim feature; NaN is permitted by HGB")
-    score = float(models[int(uid) % 5].predict_proba(vector)[0, 1])
+    # The nominal OOF scorer stores float32 scores before comparing cuts.
+    # Preserve that exact score quantization in fake-score templates.
+    score = float(np.float32(models[int(uid) % 5].predict_proba(vector)[0, 1]))
     if not (math.isfinite(score) and 0.0 <= score <= 1.0):
         raise ValueError("invalid FakeSim score")
     return category, score
