@@ -13,23 +13,14 @@ from pathlib import Path
 import numpy as np
 import uproot
 
-from .selection import RESOLVED, BOOSTED, reduce_sample
+from .selection import CONFIG, RESOLVED, BOOSTED, reduce_sample
 
 
-MASSES = (
-    400, 500, 600, 700, 800, 900, 1000, 1200,
-    1400, 1600, 1800, 2000, 2500, 3000, 3500, 4000,
-)
-PROMPT = (
-    "Zee", "Zmumu", "Ztautau", "ggH_WW", "llnunu_OS",
-    "tW", "ttH_dil", "ttW", "ttZ", "ttbar_dil",
-)
-
-
-def samples(era: str, masses=MASSES, backgrounds=PROMPT):
+def samples(era: str):
+    inventory = CONFIG["samples"]
     return (
-        [("signal", f"X{mass}_{era}") for mass in masses]
-        + [("background", f"{name}_{era}") for name in backgrounds]
+        [("signal", f"X{mass}_{era}") for mass in inventory["signal_masses_GeV"]]
+        + [("background", f"{name}_{era}") for name in inventory["prompt_backgrounds"]]
     )
 
 
@@ -120,7 +111,7 @@ def run_campaign(
     reference_dir: Path | None = None,
     expected: list[tuple[str, str]] | None = None,
 ) -> dict:
-    if era not in ("run2", "run3"):
+    if era not in CONFIG["eras"]:
         raise ValueError("era must be run2 or run3")
     inventory = samples(era) if expected is None else expected
     if len(set(inventory)) != len(inventory):
@@ -130,7 +121,7 @@ def run_campaign(
     files = []
     for kind, stem in inventory:
         source = input_root / kind / era / f"{stem}.root"
-        weights = input_root / kind / era / f"{stem}.weights.root"
+        weights = input_root / kind / era / f"{stem}{CONFIG['input']['weight_suffix']}"
         if not source.is_file() or not weights.is_file():
             raise FileNotFoundError(f"missing {source} or {weights}")
         files.append((stem, source, weights))
@@ -198,12 +189,13 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--input-root", type=Path, required=True)
     p.add_argument("--output-root", type=Path, required=True)
-    p.add_argument("--era", choices=("run2", "run3"), required=True)
+    p.add_argument("--era", choices=(*CONFIG["eras"], "both"), required=True)
     p.add_argument("--resume", action="store_true")
     p.add_argument("--reference-dir", type=Path)
     a = p.parse_args()
-    run_campaign(input_root=a.input_root, output_root=a.output_root,
-                 era=a.era, resume=a.resume, reference_dir=a.reference_dir)
+    for era in (CONFIG["eras"] if a.era == "both" else (a.era,)):
+        run_campaign(input_root=a.input_root, output_root=a.output_root,
+                     era=era, resume=a.resume, reference_dir=a.reference_dir)
 
 
 if __name__ == "__main__":
