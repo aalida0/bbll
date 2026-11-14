@@ -148,7 +148,7 @@ output.
 |---|---|---|---|
 | Preselection | `preselection/selection.py` and `preselection/campaign.py` | `preselection/config.yaml` | **Validated for both eras** |
 | BDT training | `bdt_training/train.py` | `bdt_training/config.yaml` | Implemented; awaiting AF validation |
-| SR optimization | `sr_optimization/optimize.py` | `sr_optimization/config.yaml` | Not implemented yet |
+| SR candidate screening | `sr_optimization/scan.py` | `sr_optimization/config.yaml` | Prompt-only implementation; not final optimization |
 | Fake backgrounds | `fake_backgrounds/fakes.py` | `fake_backgrounds/config.yaml` | Not implemented yet |
 | Systematics | `systematics/templates.py` | `systematics/config.yaml` | Not implemented yet |
 | Statistical inference | `statistical_inference/limits.py` | `statistical_inference/config.yaml` | Not implemented yet |
@@ -320,3 +320,46 @@ Following the four full scoring jobs, repeat for every era/topology without
 `--sample`; this creates `oof_validation.json` only after exact campaign
 closure. OOF validation is a *necessary* correctness check, not by itself
 evidence of safe high-score fit templates or absent mass sculpting.
+
+
+## Signal-region candidate screening (not final optimized limits)
+
+The fully validated OOF campaign is documented in
+[bdt_training/OOF_VALIDATION.md](bdt_training/OOF_VALIDATION.md). The
+`sr_optimization` directory now contains a **diagnostic prompt-only
+candidate screen** that reuses the validated development scan:
+signal-efficiency thresholds are defined using equal-weight contributions
+from the three signal decay channels, and adjacent master
+`m_T(HH)` bins are merged until every accepted background bin has
+`N_eff=(sumw)^2/sumw2 >= 10` and positive signed background yield.
+A candidate is rejected unless at least two shape bins survive.
+
+Both the inclusive `boosted` two-category fit and the mutually exclusive
+`boosted_1tag`/`boosted_2tag` three-category fit are screened, together
+with resolved. Run-3 nominal yields use the optional 308/312 scale.
+The screen **does not calculate CLs limits**, and it **does not include**
+fake/nonprompt backgrounds or detector/theory systematic templates.
+
+A single-mass, single-era diagnostics command is:
+
+```bash
+cd ~/bbll
+source .venv39/bin/activate
+python -m sr_optimization.scan \
+  --era run3 --mass 600 \
+  --output-root /data/aalida/bbll_rerun_20261114
+```
+
+This requires successful OOF validation manifests, reads all 26
+scored ROOT files for each topology, and writes:
+
+```text
+/data/aalida/bbll_rerun_20261114/
+  sr_optimization/run3/m600/prompt_candidate_screen.json
+```
+
+The JSON reports each cut value, number of bins, signed signal/background
+bin yields, MC variances, effective event counts and all rejection reasons.
+It is a prerequisite for building the full simultaneous `pyhf` optimization
+with fake-background and systematic-uncertainty models. **Do not describe its
+candidates as final SR definitions until those later checks pass.**
