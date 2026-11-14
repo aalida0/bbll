@@ -15,12 +15,12 @@ from pathlib import Path
 import numpy as np
 
 from .aggregate import validate_comparison
-from .matched_split import matched_templates
+from .matched_split import matched_templates, configured_min_bins
 from .prompt_likelihood import expected_mu95, validate_template
 from .scan import load_scores, validate_existing_screen
 
 
-def row_from_histogram(channel, hist, edges, baseline):
+def row_from_histogram(channel, hist, edges, baseline, min_mt_bins=2):
     row = dict(baseline)
     row["channel"] = channel
     row["edges_GeV"] = list(map(float, edges))
@@ -34,12 +34,13 @@ def row_from_histogram(channel, hist, edges, baseline):
     row["min_background_neff"] = float(
         np.min(hist["b"] * hist["b"] / hist["b2"])
     )
-    validate_template(row)
+    validate_template(row, min_mt_bins=min_mt_bins)
     return row
 
 
 def compare_matched(root, era, mass, shortlist=3, mu_max=1e5):
     root = Path(root)
+    minimum_mt_bins = configured_min_bins()
     check = validate_comparison(root, era, mass, shortlist)
     comp = json.loads(Path(check["file"]).read_text())
     src = root / "sr_optimization" / era / f"m{mass}" / "prompt_candidate_screen.json"
@@ -68,7 +69,8 @@ def compare_matched(root, era, mass, shortlist=3, mu_max=1e5):
     scored = load_scores(root, era, "boosted")
     outcome = matched_templates(
         scored, era, mass, chosen["boosted"]["score_threshold"],
-        chosen["boosted"]["edges_GeV"], reference_boosted=chosen["boosted"]
+        chosen["boosted"]["edges_GeV"], reference_boosted=chosen["boosted"],
+        min_mt_bins=minimum_mt_bins,
     )
 
     result = {
@@ -80,6 +82,9 @@ def compare_matched(root, era, mass, shortlist=3, mu_max=1e5):
         "boosted_threshold_common_to_both_tags":
             chosen["boosted"]["score_threshold"],
         "original_boosted_mt_bins": outcome["original_nbins"],
+        "minimum_boosted_mt_bins_configured": minimum_mt_bins,
+        "allow_boosted_cut_and_count": minimum_mt_bins == 1,
+        "boosted_cut_and_count": len(outcome["edges"]) == 2,
         "common_boosted_mt_edges_GeV": outcome["edges"].tolist(),
         "coarsened_boundaries_GeV": outcome["coarsening_steps"],
         "guard_failures": outcome["reasons"],
@@ -99,16 +104,23 @@ def compare_matched(root, era, mass, shortlist=3, mu_max=1e5):
     if outcome["status"] == "MATCHED_TEMPLATES_VALID":
         edges = outcome["edges"]
         boosted = row_from_histogram(
-            "boosted", outcome["rows"]["boosted"], edges, chosen["boosted"]
+            "boosted", outcome["rows"]["boosted"], edges, chosen["boosted"],
+            min_mt_bins=minimum_mt_bins,
         )
         one = row_from_histogram(
-            "boosted_1tag", outcome["rows"]["boosted_1tag"], edges, chosen["boosted"]
+            "boosted_1tag", outcome["rows"]["boosted_1tag"], edges, chosen["boosted"],
+            min_mt_bins=minimum_mt_bins,
         )
         two = row_from_histogram(
-            "boosted_2tag", outcome["rows"]["boosted_2tag"], edges, chosen["boosted"]
+            "boosted_2tag", outcome["rows"]["boosted_2tag"], edges, chosen["boosted"],
+            min_mt_bins=minimum_mt_bins,
         )
-        a, solver2 = expected_mu95([chosen["resolved"], boosted], mu_max)
-        b, solver3 = expected_mu95([chosen["resolved"], one, two], mu_max)
+        a, solver2 = expected_mu95(
+            [chosen["resolved"], boosted], mu_max, min_mt_bins=minimum_mt_bins
+        )
+        b, solver3 = expected_mu95(
+            [chosen["resolved"], one, two], mu_max, min_mt_bins=minimum_mt_bins
+        )
         ratio = a / b
         result.update({
             "status": "PASS_MATCHED_SPLIT_CONTROL",
@@ -128,11 +140,11 @@ def compare_matched(root, era, mass, shortlist=3, mu_max=1e5):
         print(f"Matched thresholds: two mu95={a:.8g}; "
               f"three mu95={b:.8g}; ratio={ratio:.6f}", flush=True)
     else:
-        print(f"Not comparable at fixed cut + >=2 mT bins: "
+        print(f"Not comparable at fixed cut + >={minimum_mt_bins} mT bins: "
               f"{outcome['reasons']}", flush=True)
 
     dest = root / "sr_optimization" / era / f"m{mass}" / (
-        f"prompt_matched_split_top{shortlist}.json"
+        f"prompt_matched_split_top{shortlist}_minbin{minimum_mt_bins}.json"
     )
     if dest.exists():
         raise FileExistsError(dest)
