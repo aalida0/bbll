@@ -1,8 +1,25 @@
 schema_version: 1
-status: SIMULATED_FAKES_PROTOTYPE_NOT_VALIDATED
+status: LEGACY_FAKESIM_ADAPTATION_REQUIRED
 # This is a standalone MC-only feasibility/closure study, NOT a data-driven
 # fake-background estimate and NOT an input to the nominal pyhf likelihood.
-mode: mc_closure_only
+# Primary path: reuse the existing tested FakeSim library from bbll-ml-sr.
+# The SS-to-OS prototype below is exploratory only; it is NOT the baseline.
+mode: reuse_legacy_fakesim
+legacy_repo: bbll-ml-sr
+legacy_framework:
+  primary_producer: scripts/data/produce_run3_fakesim_benchmark_shard.py
+  reconstruction: scripts/data/fakesim_reco.py
+  topology: scripts/data/fakesim_hbb_topology.py
+  score_and_kinematics: scripts/data/fakesim_analysis_observables.py
+  rate_benchmarks: scripts/data/fakesim_public_benchmarks.py
+  statistics: scripts/stats/fakesim_background.py
+  likelihood: scripts/stats/fakesim_likelihood.py
+  historical_run3_input_events: 4000000
+  historical_templates_valid_for_current_sr: false
+  blocker: historical_mass_window_gate_in_fake_producer
+experimental_ss_transfer_only:
+  enabled_for_nominal: false
+  reason: os_only_current_preselection_and_unavailable_ss_data
 source: ATL-COM-PHYS-2024-862 Section 7.3 (23 Jan 2026)
 note_method: same_sign_prompt_subtraction_and_mc_os_ss_transfer
 # The note explicitly lists 11 subleading-lepton pT intervals (12 edges).
