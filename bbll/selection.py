@@ -41,9 +41,10 @@ def categories(a: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     """Exclusive boosted-first topology; identical selected events in both schemes."""
     common = np.asarray(a[CUTS["common"]], dtype=bool)
     tags = np.asarray(a[CUTS["boosted_n_tags"]])
+    min_tags = CUTS["boosted_min_tags"]
     boosted = (
         common & np.asarray(a[CUTS["boosted_candidate"]], dtype=bool)
-        & np.asarray(a[CUTS["trimmed_candidate"]], dtype=bool) & (tags >= 1)
+        & np.asarray(a[CUTS["trimmed_candidate"]], dtype=bool) & (tags >= min_tags)
     )
     resolved = (
         common & ~boosted
@@ -54,8 +55,8 @@ def categories(a: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
 
     three = np.full(len(common), -1, dtype=np.int8)
     three[resolved] = CAT3["resolved"]
-    three[boosted & (tags == 1)] = CAT3["boosted_1tag"]
-    three[boosted & (tags >= 2)] = CAT3["boosted_2tag"]
+    three[boosted & (tags == min_tags)] = CAT3["boosted_1tag"]
+    three[boosted & (tags > min_tags)] = CAT3["boosted_2tag"]
 
     two = np.full(len(common), -1, dtype=np.int8)
     two[resolved] = CAT2["resolved"]
