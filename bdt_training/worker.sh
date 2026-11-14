@@ -3,6 +3,12 @@
 # Python, the repository and selected ROOT inputs must remain accessible
 # through their absolute /home and /data paths, as in the legacy AF workflow.
 
+MODE="train"
+if [ "$1" = "score" ]; then
+  MODE="score"
+  shift
+fi
+
 ERA="$1"
 TOPOLOGY="$2"
 PYTHON="$3"
@@ -28,5 +34,10 @@ if [ "$?" -ne 0 ]; then
   exit 3
 fi
 
-exec "$PYTHON" -m bdt_training.train "$ERA" "$TOPOLOGY" \
-  --selected-root "$SELECTED" --output-root "$OUTPUT"
+if [ "$MODE" = "score" ]; then
+  exec "$PYTHON" -m bdt_training.score "$ERA" "$TOPOLOGY" \
+    --selected-root "$SELECTED" --output-root "$OUTPUT" --resume
+else
+  exec "$PYTHON" -m bdt_training.train "$ERA" "$TOPOLOGY" \
+    --selected-root "$SELECTED" --output-root "$OUTPUT"
+fi
