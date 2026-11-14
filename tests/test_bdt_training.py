@@ -78,6 +78,7 @@ def test_condor_has_four_jobs_and_no_site_specific_path(tmp_path):
     assert "request_memory = 16GB" in spec
     assert "request_cpus = 1" in spec
     assert "should_transfer_files = NO" in spec
+    assert "getenv = False" in spec
     assert "/home/aalida/" not in spec
     assert "AF.uchicago" not in spec
 
@@ -168,3 +169,29 @@ def test_submit_preserves_virtualenv_python_symlink(tmp_path, monkeypatch):
     main()
     text = (out / "logs" / "bdt_training.sub").read_text()
     assert f"executable = {python}" in text
+
+
+def test_reference_environment_rejects_mixed_python_packages():
+    from bdt_training.environment import verify_runtime
+
+    clean = verify_runtime(
+        python="3.9", numpy_version="2.0.2", sklearn_version="1.6.1",
+        paths=["/usr/lib/python3.9", "/home/example/bbll/.venv39/site-packages"],
+    )
+    assert clean["python"] == "3.9"
+
+    with pytest.raises(RuntimeError, match="Python 3.13"):
+        verify_runtime(
+            python="3.13", numpy_version="2.0.2", sklearn_version="1.6.1",
+            paths=["/clean"],
+        )
+    with pytest.raises(RuntimeError, match="Key4hep"):
+        verify_runtime(
+            python="3.9", numpy_version="2.0.2", sklearn_version="1.6.1",
+            paths=["/cvmfs/sw.hsf.org/key4hep/releases/2026-02-01/lib/python3.13"],
+        )
+    with pytest.raises(RuntimeError, match="NumPy"):
+        verify_runtime(
+            python="3.9", numpy_version="2.2.0", sklearn_version="1.6.1",
+            paths=["/clean"],
+        )
