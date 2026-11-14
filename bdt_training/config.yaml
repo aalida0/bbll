@@ -1,2 +1,34 @@
 schema_version: 1
-status: not_implemented
+
+# Frozen five-fold all-mass BDT setup from the validated bbll-ml-sr study.
+algorithm: HistGradientBoostingClassifier
+model_variants: {resolved: conservative, boosted: safer}
+folds: 5
+seed: 12345
+
+# Original deterministic training pool: 1/10 of signal, Z+jets and top;
+# retain all rare prompt "other" samples. FakeSim is never training input.
+sampling: {bulk_divisor: 10, other_divisor: 1}
+background_families:
+  zjets: [Zee, Zmumu, Ztautau]
+  top: [ttbar_dil, tW, ttW, ttZ, ttH_dil]
+  other: [llnunu_OS, ggH_WW]
+
+# Loss uses abs(weight_nominal), rebalanced independently in each fold:
+# equal overall S/B; equal 3 background families; equal 16x3 signal cells.
+hyperparameters:
+  learning_rate: 0.05
+  max_iter: 1200
+  max_leaf_nodes: 31
+  min_samples_leaf: 100
+  l2_regularization: 1.0
+  early_stopping: true
+  validation_fraction: 0.1
+  n_iter_no_change: 20
+  tol: 1.0e-7
+
+# Shared-filesystem Condor jobs. No AF/lxplus hostname assumptions.
+condor:
+  cpus: 1
+  memory: 16GB
+  disk: 4GB

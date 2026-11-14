@@ -147,15 +147,14 @@ output.
 | Stage | Entry script | Configuration | State |
 |---|---|---|---|
 | Preselection | `preselection/selection.py` and `preselection/campaign.py` | `preselection/config.yaml` | **Validated for both eras** |
-| BDT training | `bdt_training/train.py` | `bdt_training/config.yaml` | Not implemented yet |
+| BDT training | `bdt_training/train.py` | `bdt_training/config.yaml` | Implemented; awaiting AF validation |
 | SR optimization | `sr_optimization/optimize.py` | `sr_optimization/config.yaml` | Not implemented yet |
 | Fake backgrounds | `fake_backgrounds/fakes.py` | `fake_backgrounds/config.yaml` | Not implemented yet |
 | Systematics | `systematics/templates.py` | `systematics/config.yaml` | Not implemented yet |
 | Statistical inference | `statistical_inference/limits.py` | `statistical_inference/config.yaml` | Not implemented yet |
 
-Only preselection contains working production analysis code so far. Other directories
-are deliberate fail-fast placeholders to make the folder structure explicit;
-they cannot produce results. Shared eras, luminosity policy (optional 308/312
+Preselection is fully validated for both eras. BDT training is implemented and awaits
+an AF training campaign; the remaining stages are explicit nonfunctional placeholders. Shared eras, luminosity policy (optional 308/312
 Run-3 scaling), samples, and feature names live in `bbll/analysis.yaml`.
 All Stage-1 event weights remain stored exactly as in the input sidecars.
 
@@ -170,3 +169,57 @@ events. The nominal selected weights are copied from
 `Weights/weight_nominal`; the reader does not infer or apply any separate
 cross-section factor. The provenance and contents of any *cross-section
 metadata* inside the sidecar still need explicit independent verification.
+
+## BDT training
+
+The final all-mass model uses the published frozen 20-feature resolved
+(\`conservative\`) and 25-feature boosted (\`safer\`) classifiers. Training uses
+five deterministic folds (\`event_uid % 5\`), one model per held-out fold,
+raw absolute event weights rebalanced per background family and signal mass
+× decay cell, and the original 1/10 deterministic bulk sampling.
+
+The four independent jobs are Run 2/Run 3 × resolved/boosted, configured in
+\`bdt_training/config.yaml\`. Each reads the already-selected ROOT files from
+\`preselection\` (no second reduction or regeneration).
+
+Preflight one job without writing models:
+
+\`\`\`bash
+python -m bdt_training.train run3 resolved \
+  --selected-root /path/to/selected \
+  --output-root /path/to/results --dry-run
+\`\`\`
+
+Train interactively (repeat for all four combinations if not using Condor):
+
+\`\`\`bash
+python -m bdt_training.train run3 resolved \
+  --selected-root /path/to/selected \
+  --output-root /path/to/results
+\`\`\`
+
+For HTCondor on a shared filesystem, generate one four-job submit file without
+hardcoding site paths, then submit:
+
+\`\`\`bash
+python -m bdt_training.submit \
+  --selected-root /path/to/selected \
+  --output-root /path/to/results
+condor_submit /path/to/results/logs/bdt_training.sub
+\`\`\`
+
+Or add \`--submit\` to the first command. The generated submit file uses
+the current Python interpreter and repository directory, **1 CPU, 16 GB memory,
+4 GB disk per job**, with BLAS/OpenMP thread counts limited to one. No worker
+needs network access, Docker or another git checkout; this assumes a shared
+filesystem (as in the historical AF campaign).
+
+Outputs: \`results/models/<era>/<topology>/<variant>/fold0.pkl\` through
+\`fold4.pkl\`, \`features.txt\`, and \`training_metrics.json\`.
+
+**Not a new physics definition:** the training pool, input features, and
+hyperparameters reproduce the validated development methodology. This fresh
+public training implementation still requires real-data AUC and event-count
+comparison with the previous model banks before the new models are considered
+publication-validated. Full-event OOF scoring is a separate follow-up within
+\`bdt_training\`, after this model-bank validation.
