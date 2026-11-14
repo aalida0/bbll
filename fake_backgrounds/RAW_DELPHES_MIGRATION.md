@@ -61,3 +61,28 @@ No historical FakeSim kappa is applied in this pilot, and the public ATLAS 13.6 
 - Current prompt-only mass scans, BDT models, and source event files remain unchanged. Fake templates are not integrated into the nominal pyhf likelihood yet.
 
 Next gate: run the inventory for one file from each of the three Run-3 source classes, then run the printed bounded pilot commands. Once real raw-source closure passes, adapt the existing full FakeSim Condor producer, including removal of the old mass-window veto, score inputs, normalization and fake-aware likelihood.
+
+
+## If the inventory reports missing exact-association caches
+
+These are NOT analysis ntuples. They are compact, exact ROOT-identity
+maps built by the old framework from the existing raw Delphes ROOT file.
+Never use a cache belonging to a different raw filename or event order.
+
+The old repository already provides these documented builders:
+
+    python -m scripts.data.build_exact_association_cache RAW_ROOT OUTPUT_ASSOC_NPZ \
+      --delphes-lib /home/aalida/tools/Delphes/libDelphes.so
+
+    python -m scripts.data.build_exact_largeR_overlap_cache RAW_ROOT OUTPUT_LARGER_NPZ \
+      --delphes-lib /home/aalida/tools/Delphes/libDelphes.so
+
+Run from the old bbll-ml-sr checkout in a Python/ROOT environment with
+PyROOT and libDelphes.so available. Build the FULL raw-file caches, not only
+the first 100 pilot entries, if the cache will later be reused for complete
+source processing. Their loaders validate raw basename, event counts and
+per-entry identity. Do not blindly overwrite an already validated cache.
+
+If a Run-2 raw FakeSim source or its original normalization summary is
+missing, record that as a physics input blocker rather than substituting
+Run-3 data. We must not equate a 13.6 TeV source ensemble with a 13 TeV one.
