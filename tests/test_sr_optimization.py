@@ -100,3 +100,79 @@ def test_decay_balanced_threshold_and_diagnostic_candidate():
     assert row["signal_yield"] > 0
     assert row["background_yield"] > 0
     assert row["score_threshold"] < 1
+
+
+
+def test_all_masses_loads_oof_once_and_resumes(tmp_path, monkeypatch):
+    import json
+    import sr_optimization.scan as scanner
+
+    load_calls = []
+    screen_calls = []
+    def fake_load(root, era, topology):
+        load_calls.append((era, topology))
+        return {"dummy": topology}
+
+    def fake_screen(root, era, mass, output, by_topology=None):
+        assert by_topology == {
+            "resolved": {"dummy": "resolved"},
+            "boosted": {"dummy": "boosted"},
+        }
+        screen_calls.append(mass)
+        valid = {
+            channel: [
+                {
+                    "channel": channel,
+                    "mass_GeV": mass,
+                    "n_mt_bins": 2,
+                    "min_background_neff": 12.0,
+                    "efficiency_target": eff,
+                }
+                for eff in scanner.CFG["signal_efficiency_grids"][channel]
+            ]
+            for channel in scanner.CHANNEL_TO_TOPOLOGY
+        }
+        doc = {
+            "schema_version": 1,
+            "status": "PROMPT_ONLY_SCREEN_NOT_FINAL",
+            "era": era, "mass_GeV": mass,
+            "fake_backgrounds_included": False,
+            "systematic_uncertainties_included": False,
+            "expected_limits_computed": False,
+            "minimum_background_neff_per_bin":
+                scanner.CFG["minimum_background_neff_per_bin"],
+            "minimum_mt_bins": scanner.CFG["minimum_mt_bins"],
+            "candidates": valid,
+            "rejected": {name: {} for name in scanner.CHANNEL_TO_TOPOLOGY},
+        }
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(doc))
+        return doc
+
+    monkeypatch.setattr(scanner, "load_scores", fake_load)
+    monkeypatch.setattr(scanner, "screen", fake_screen)
+    summary = scanner.screen_all(tmp_path, "run3", masses=[600, 700])
+    assert summary["n_masses"] == 2
+    assert screen_calls == [600, 700]
+    assert load_calls == [("run3", "resolved"), ("run3", "boosted")]
+    assert (tmp_path / "sr_optimization" / "run3" /
+            "prompt_screen_campaign.json").exists()
+
+    with pytest.raises(FileExistsError, match="resume"):
+        scanner.screen_all(tmp_path, "run3", masses=[600, 700])
+
+    load_calls.clear()
+    screen_calls.clear()
+    reused = scanner.screen_all(
+        tmp_path, "run3", resume=True, masses=[600, 700]
+    )
+    assert reused["masses"] == summary["masses"]
+    assert not load_calls and not screen_calls
+
+    broken = (tmp_path / "sr_optimization" / "run3" / "m600" /
+              "prompt_candidate_screen.json")
+    saved = json.loads(broken.read_text())
+    saved["candidates"]["resolved"].pop()
+    broken.write_text(json.dumps(saved))
+    with pytest.raises(ValueError, match="incomplete threshold grid"):
+        scanner.screen_all(tmp_path, "run3", resume=True, masses=[600, 700])
