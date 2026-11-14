@@ -215,3 +215,57 @@ def test_frozen_two_and_three_resolved_cuts_are_distinct(tmp_path, monkeypatch):
     assert cuts["boosted"]["threshold"] == pytest.approx(.6)
     assert cuts["boosted_1tag"]["threshold"] == pytest.approx(.8)
     assert cuts["boosted_2tag"]["threshold"] == pytest.approx(.9)
+
+
+def test_inventory_execute_dispatches_verified_command_with_active_interpreter(
+        tmp_path, monkeypatch):
+    import sys
+
+    raw = tmp_path / "tiny.delphes.root"
+    raw.touch()
+    src = tmp_path / "sources"
+    src.mkdir()
+    manifest = src / "manifest.json"
+    manifest.write_text(json.dumps({
+        "files": [{
+            "sample": "Wenu_b", "ordinal": 1,
+            "raw_file": str(raw),
+            "sample_id": "Run3_other_700777",
+            "source_id": "mc23:EVNT.raw.pool.root.1#0:10000",
+        }]
+    }))
+    data = tmp_path / "fakes"
+    assoc = data / "association_cache/run3/Wenu_b/tiny.assoc.npz"
+    large = data / "largeR_overlap_cache/run3/Wenu_b/tiny.largeR_overlap.npz"
+    norm = data / "run3_Wenu_b_raw_weight_summary.json"
+    for path in (assoc, large, norm):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+    calls = []
+    def capture(command, check):
+        calls.append((command, check))
+
+    monkeypatch.setattr(inventory.subprocess, "run", capture)
+    monkeypatch.setattr(sys, "argv", [
+        "fake_backgrounds.legacy_inventory",
+        "--manifest", str(manifest), "--sample", "Wenu_b",
+        "--ordinal", "1", "--era", "run3", "--mass", "800",
+        "--events", "100", "--legacy-repo", str(src),
+        "--output-root", str(tmp_path/"output"),
+        "--source-root", str(data), "--execute"
+    ])
+    inventory.main()
+    assert len(calls) == 1
+    cmd, checked = calls[0]
+    assert checked is True
+    assert cmd[0] == sys.executable
+    assert "mc23:EVNT.raw.pool.root.1#0:10000" in cmd
+    assert "--raw-root" in cmd
+    assert "--skip-manifest" not in cmd
+
+    # Missing mandatory cache fails closed; no second subprocess call.
+    assoc.unlink()
+    with pytest.raises(FileNotFoundError, match="association"):
+        inventory.main()
+    assert len(calls) == 1
