@@ -265,4 +265,85 @@ def test_transferred_worker_launcher_avoids_shell_strict_modes():
     assert "set -e" not in worker
     assert "set -u" not in worker
     assert 'exec "$PYTHON" -m bdt_training.train' in worker
+    assert 'exec "$PYTHON" -m bdt_training.score' in worker
     assert "unset PYTHONPATH PYTHONHOME" in worker
+
+
+
+def test_condor_scoring_mode_is_independent_of_training(tmp_path):
+    repo = tmp_path / "repository"
+    (repo / "bdt_training").mkdir(parents=True)
+    (repo / "bdt_training" / "worker.sh").write_text("#!/bin/bash\n")
+    py = tmp_path / "python"
+    selected = tmp_path / "selected"
+    py.touch()
+    selected.mkdir()
+    out = tmp_path / "results"
+    logs = tmp_path / "logs"
+    spec = build_submit(repo, py, selected, out, logs, mode="score")
+    assert "arguments = worker.sh score $(era) $(topology)" in spec
+    assert "should_transfer_files = YES" in spec
+    assert "request_memory = 8GB" in spec
+    assert "bdt_oof_$(era)_$(topology)_" in spec
+    assert "FileSystemDomain" not in spec
+
+
+def test_oof_fold_scoring_and_raw_weight_preservation(tmp_path):
+    import uproot
+    from bdt_training.score import score_sample, score_chunk
+
+    class Model:
+        def __init__(self, fold):
+            self.fold = fold
+
+        def predict_proba(self, x):
+            probability = np.full(len(x), (self.fold + 1) / 10.0)
+            return np.column_stack([1.0 - probability, probability])
+
+    models = [Model(i) for i in range(5)]
+    fold = np.array([4, 1, 0, 3, 2], dtype=np.int8)
+    p = score_chunk(np.ones((5, 3), dtype=np.float32), fold, models)
+    np.testing.assert_allclose(p, [0.5, 0.2, 0.1, 0.4, 0.3])
+
+    all_features = list(dict.fromkeys(
+        load_config()["features"]["resolved"] + load_config()["features"]["boosted"]
+    ))
+    n = 12
+    cat = np.array([0, 1, 2] * 4, dtype=np.int8)
+    uid = np.arange(n, dtype=np.uint64)
+    signed_w = np.array([(-1.0 if i % 2 else 1.0) * (i + 1)
+                         for i in range(n)], dtype=np.float64)
+    a = {k: np.ones(n, dtype=np.float32) for k in all_features}
+    a.update({
+        "category3": cat, "category2": (cat > 0).astype(np.int8),
+        "event_uid": uid, "source_entry": np.arange(n, dtype=np.int64),
+        "physics_weight": signed_w,
+        "mt_hh_mH125": np.arange(n, dtype=np.float32) + 200,
+        "is_signal": np.ones(n, dtype=np.bool_),
+        "signal_mass_GeV": np.full(n, 600, dtype=np.int16),
+        "signal_decay_id": np.ones(n, dtype=np.int8),
+        "n_tags_inside_largeR": cat,
+    })
+    source = tmp_path / "X600_run3.root"
+    out = tmp_path / "bdt_scores" / "X600_run3.root"
+    with uproot.recreate(source) as f:
+        f.mktree("events", {k: v.dtype for k, v in a.items()}).extend(a)
+
+    features = load_config()["features"]["boosted"]
+    report = score_sample(source, out, "run3", "boosted", features,
+                          models, ["test_hash"] * 5)
+    assert report["events"] == np.count_nonzero(cat > 0)
+    with uproot.open(out) as f:
+        saved = f["events"].arrays(library="np")
+    np.testing.assert_array_equal(saved["source_entry"], np.nonzero(cat > 0)[0])
+    np.testing.assert_array_equal(saved["physics_weight"], signed_w[cat > 0])
+    np.testing.assert_array_equal(saved["oof_fold"], (uid[cat > 0] % 5))
+    np.testing.assert_allclose(
+        saved["ml_score"], ((uid[cat > 0] % 5) + 1) / 10, atol=1e-7,
+    )
+    assert np.any(saved["physics_weight"] < 0)
+    assert score_sample(source, out, "run3", "boosted", features,
+                        models, ["test_hash"] * 5, resume=True)["events"] == report["events"]
+    with pytest.raises(FileExistsError):
+        score_sample(source, out, "run3", "boosted", features,
+                     models, ["test_hash"] * 5)
