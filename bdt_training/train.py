@@ -24,6 +24,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import roc_auc_score
 
 from bbll.config import load_config, load_stage_config
+from .environment import verify_runtime
 
 ANALYSIS = load_config()
 TRAINING = load_stage_config("bdt_training")
@@ -243,6 +244,7 @@ def main():
     p.add_argument("--output-root", type=Path, required=True)
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
+    verify_runtime()
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
