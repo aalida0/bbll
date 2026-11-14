@@ -193,8 +193,10 @@ def adaptive_edges(mt, w, threshold=10.0):
             edges = np.delete(edges, i if left >= right else i+1)
 
 
-def candidate(data, era, channel, mass, efficiency):
-    signal_w, sig = balanced_signal_for_cut(data, mass, channel)
+def candidate(data, era, channel, mass, efficiency, signal_cache=None):
+    # Reuse equal-decay signal weights across threshold scans of a mass/channel.
+    signal_w, sig = (balanced_signal_for_cut(data, mass, channel)
+                     if signal_cache is None else signal_cache)
     threshold = positive_weighted_quantile(
         data["ml_score"][sig], 1.0-efficiency, signal_w[sig]
     )
@@ -242,18 +244,27 @@ def candidate(data, era, channel, mass, efficiency):
     }, "ok"
 
 
-def screen(root: Path, era: str, mass: int, output: Path):
+def screen(root: Path, era: str, mass: int, output: Path,
+           by_topology=None):
     if int(mass) not in SAMPLES["signal_masses_GeV"]:
         raise ValueError(f"mass {mass} is not in frozen inventory")
-    resolved = load_scores(root, era, "resolved")
-    boosted = load_scores(root, era, "boosted")
-    by_topology = {"resolved": resolved, "boosted": boosted}
+    if output.exists():
+        raise FileExistsError(f"screen output exists: {output}")
+    if by_topology is None:
+        by_topology = {
+            "resolved": load_scores(root, era, "resolved"),
+            "boosted": load_scores(root, era, "boosted"),
+        }
     tables, rejections = {}, {}
     for channel, topology in CHANNEL_TO_TOPOLOGY.items():
         data = by_topology[topology]
         rows, rejected = [], {}
+        signal_cache = balanced_signal_for_cut(data, mass, channel)
         for eff in CFG["signal_efficiency_grids"][channel]:
-            item, reason = candidate(data, era, channel, mass, float(eff))
+            item, reason = candidate(
+                data, era, channel, mass, float(eff),
+                signal_cache=signal_cache,
+            )
             if item is None:
                 rejected[str(eff)] = reason
             else:
@@ -285,15 +296,146 @@ def screen(root: Path, era: str, mass: int, output: Path):
     return result
 
 
+def validate_existing_screen(path, era, mass):
+    """Read-only, strict resume of an existing diagnostic mass-point JSON."""
+    doc = json.loads(path.read_text())
+    if (doc.get("schema_version") != 1
+            or doc.get("status") != "PROMPT_ONLY_SCREEN_NOT_FINAL"
+            or doc.get("era") != era
+            or doc.get("mass_GeV") != int(mass)
+            or doc.get("fake_backgrounds_included") is not False
+            or doc.get("systematic_uncertainties_included") is not False
+            or doc.get("expected_limits_computed") is not False
+            or doc.get("minimum_background_neff_per_bin")
+                != CFG["minimum_background_neff_per_bin"]
+            or doc.get("minimum_mt_bins") != CFG["minimum_mt_bins"]
+            or set(doc.get("candidates", {})) != set(CHANNEL_TO_TOPOLOGY)
+            or set(doc.get("rejected", {})) != set(CHANNEL_TO_TOPOLOGY)):
+        raise ValueError(f"{path}: cannot resume incompatible SR screening")
+    for channel in CHANNEL_TO_TOPOLOGY:
+        candidates = doc["candidates"][channel]
+        rejects = doc["rejected"][channel]
+        grid = CFG["signal_efficiency_grids"][channel]
+        if len(candidates) + len(rejects) != len(grid):
+            raise ValueError(f"{path}: incomplete threshold grid for {channel}")
+        effective = []
+        for row in candidates:
+            if (row.get("channel") != channel
+                    or row.get("mass_GeV") != int(mass)
+                    or row.get("n_mt_bins", 0) < CFG["minimum_mt_bins"]
+                    or row.get("min_background_neff", -1)
+                        < CFG["minimum_background_neff_per_bin"]):
+                raise ValueError(f"{path}: invalid candidate in {channel}")
+            effective.append(float(row["efficiency_target"]))
+        rejected_efficiencies = [float(key) for key in rejects]
+        if (len(set(effective + rejected_efficiencies)) != len(grid)
+                or set(round(x, 12) for x in effective + rejected_efficiencies)
+                    != set(round(float(x), 12) for x in grid)):
+            raise ValueError(f"{path}: mismatched efficiency grid for {channel}")
+    return doc
+
+
+def screen_all(root: Path, era: str, resume=False, masses=None):
+    """Scan multiple masses while loading each large OOF topology only once."""
+    if era not in ANALYSIS["eras"]:
+        raise ValueError(f"unsupported era: {era}")
+    all_masses = [int(m) for m in SAMPLES["signal_masses_GeV"]]
+    masses = all_masses if masses is None else [int(m) for m in masses]
+    if not masses or len(set(masses)) != len(masses):
+        raise ValueError("mass scan requires a nonempty, unique mass inventory")
+    if any(m not in all_masses for m in masses):
+        raise ValueError("mass scan includes a mass outside the frozen inventory")
+
+    targets = {
+        mass: (root / "sr_optimization" / era / f"m{mass}"
+               / "prompt_candidate_screen.json")
+        for mass in masses
+    }
+    existing = {m for m, path in targets.items() if path.exists()}
+    if existing and not resume:
+        raise FileExistsError(
+            f"SR screen outputs already exist for {era}: {sorted(existing)}; "
+            "use --resume to validate and reuse these"
+        )
+
+    results = {}
+    for mass in sorted(existing):
+        results[mass] = validate_existing_screen(targets[mass], era, mass)
+        print(f"{era}/m{mass}: validated existing prompt-only screen", flush=True)
+
+    missing = [mass for mass in masses if mass not in existing]
+    if missing:
+        print(f"{era}: reading OOF ROOT scores once for {len(missing)} masses", flush=True)
+        data = {
+            "resolved": load_scores(root, era, "resolved"),
+            "boosted": load_scores(root, era, "boosted"),
+        }
+        for mass in missing:
+            results[mass] = screen(root, era, mass, targets[mass],
+                                   by_topology=data)
+
+    summary = {
+        "schema_version": 1,
+        "status": "PROMPT_ONLY_SCREEN_NOT_FINAL",
+        "era": era,
+        "mass_inventory_GeV": masses,
+        "n_masses": len(masses),
+        "fake_backgrounds_included": False,
+        "systematic_uncertainties_included": False,
+        "expected_limits_computed": False,
+        "masses": {
+            str(mass): {
+                "valid": {
+                    channel: len(results[mass]["candidates"][channel])
+                    for channel in CHANNEL_TO_TOPOLOGY
+                },
+                "rejected": {
+                    channel: len(results[mass]["rejected"][channel])
+                    for channel in CHANNEL_TO_TOPOLOGY
+                },
+            }
+            for mass in masses
+        },
+    }
+    outpath = root / "sr_optimization" / era / "prompt_screen_campaign.json"
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    # A failed/incomplete campaign never overwrites the completed summary.
+    tmp = outpath.with_suffix(".json.tmp")
+    if tmp.exists():
+        raise FileExistsError(f"unfinished screening summary: {tmp}")
+    try:
+        tmp.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        tmp.replace(outpath)
+    finally:
+        tmp.unlink(missing_ok=True)
+    print(f"PASS: {era} prompt-only SR screen for {len(masses)} mass points; "
+          f"summary={outpath}", flush=True)
+    return summary
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--era", choices=("run2", "run3"), required=True)
-    p.add_argument("--mass", type=int, required=True)
+    p.add_argument("--era", choices=("run2", "run3", "both"), required=True)
+    mode = p.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--mass", type=int)
+    mode.add_argument("--all-masses", action="store_true")
     p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--resume", action="store_true",
+                   help="validate and reuse existing mass-point JSON outputs")
     args = p.parse_args()
-    output = (args.output_root / "sr_optimization" / args.era
-              / f"m{args.mass}" / "prompt_candidate_screen.json")
-    screen(args.output_root, args.era, args.mass, output)
+    eras = ("run2", "run3") if args.era == "both" else (args.era,)
+    if args.all_masses:
+        for era in eras:
+            screen_all(args.output_root, era, resume=args.resume)
+    else:
+        for era in eras:
+            path = (args.output_root / "sr_optimization" / era
+                    / f"m{args.mass}" / "prompt_candidate_screen.json")
+            if args.resume and path.exists():
+                validate_existing_screen(path, era, args.mass)
+                print(f"PASS: resumed {era}/m{args.mass} prompt-only screen", flush=True)
+            else:
+                screen(args.output_root, era, args.mass, path)
 
 
 if __name__ == "__main__":
