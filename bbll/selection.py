@@ -146,6 +146,8 @@ def reduce_sample(
                         raise ValueError("non-finite selected mt_hh_mH125")
                     data["physics_weight"] = w[chosen]
                     data["train_weight_base"] = np.abs(w[chosen])
+                    # Stable entry index for later nominal/variation alignment.
+                    data["source_entry"] = np.arange(first, stop, dtype=np.int64)[chosen]
                     data["category3"] = three[chosen]
                     data["category2"] = two[chosen]
                     if outtree is None:
