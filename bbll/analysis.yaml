@@ -1,0 +1,46 @@
+# Single publication configuration for both LHC running periods.
+# Selection flags are computed upstream in Analysis_NOSYS; Stage 1 applies them.
+schema_version: 1
+
+eras:
+  run2: {sqrt_s_TeV: 13.0, luminosity_fb: 140.1}
+  run3: {sqrt_s_TeV: 13.6, luminosity_fb: 312.0}
+
+samples:
+  signal_masses_GeV: [400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000, 2500, 3000, 3500, 4000]
+  prompt_backgrounds: [Zee, Zmumu, Ztautau, ggH_WW, llnunu_OS, tW, ttH_dil, ttW, ttZ, ttbar_dil]
+  # W+jets/nonprompt ttbar are separate FakeSim inputs (later stage).
+
+input:
+  nominal_tree: Analysis_NOSYS
+  weight_tree: Weights
+  weight_branch: weight_nominal
+
+selection:
+  common: pass_common_preselection  # upstream: OS dileptons, trigger, etc.
+  boosted_candidate: largeR_candidate_valid
+  trimmed_candidate: largeR_trim_valid
+  boosted_n_tags: n_tags_inside_largeR
+  boosted_min_tags: 1
+  resolved_candidate: resolved_candidate_valid
+  resolved_b_tags: [resolved_b1_tag, resolved_b2_tag]
+  priority: boosted                 # resolved only if NOT accepted boosted
+  hbb_mass_window_required: false
+  categories3: [resolved, boosted_1tag, boosted_2tag]
+  categories2: [resolved, boosted]   # boosted = 1tag + 2tag
+
+# Frozen Stage-3 model inputs. mT(HH) and tag multiplicity are not BDT inputs.
+features:
+  resolved: [
+    is_same_flavour, l1_pt, l2_pt, mll, ptll, dR_ll, met, dPhi_ll_met,
+    mt_l_min_met, mt_l_max_met, hbb_dPhi_ll, hbb_dR_ll, hbb_pt_balance,
+    min_dR_lepton_bjet, n_bjets_outside_hbb, ht_jets, resolved_mbb,
+    resolved_ptbb, resolved_dRbb, resolved_dPhibb
+  ]
+  boosted: [
+    is_same_flavour, l1_pt, l1_eta, l2_pt, l2_eta, mll, dR_ll, dPhi_ll,
+    met, dPhi_ll_met, mt_l_min_met, mt_l_max_met, mt_ll_met, hbb_dPhi_ll,
+    hbb_dR_ll, hbb_dPhi_met, hbb_pt_balance, min_dR_lepton_bjet,
+    n_jets_outside_hbb, n_bjets_outside_hbb, largeR_trim_mass,
+    largeR_eta, largeR_tau21, largeR_tau32, largeR_nsubjets_trimmed
+  ]
