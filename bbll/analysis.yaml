@@ -15,6 +15,7 @@ input:
   nominal_tree: Analysis_NOSYS
   weight_tree: Weights
   weight_branch: weight_nominal
+  weight_suffix: .weights.root
 
 selection:
   common: pass_common_preselection  # upstream: OS dileptons, trigger, etc.
