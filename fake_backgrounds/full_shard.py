@@ -14,6 +14,7 @@ only after strict full-source merge. Nothing is added to nominal pyhf yet.
 from __future__ import annotations
 
 import argparse
+import gc
 import importlib
 import json
 import math
@@ -263,7 +264,7 @@ def run_source_file(*, manifest, source_root, legacy_repo, model_root,
             anchor_y += anchor_event
             anchor_second += anchor_event*anchor_event
             anchor_active += anchor_event != 0
-        print(f"progress {sample}/{ordinal}: {stop}/{upper}", flush=True)
+        # Release jagged Delphes adapters between bounded chunks, matching the\n        # validated historical full-file producer memory discipline.\n        del events\n        gc.collect()\n        print(f"progress {sample}/{ordinal}: {stop}/{upper}", flush=True)
 
     expected_seen = set(
         int(x) for x in expected_skips if int(x) < upper
