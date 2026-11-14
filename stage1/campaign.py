@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import uproot
 
-from .selection import CONFIG, RESOLVED, BOOSTED, reduce_sample
+from .selection import CONFIG, STAGE, RESOLVED, BOOSTED, reduce_sample
 
 
 def samples(era: str):
@@ -121,7 +121,7 @@ def run_campaign(
     files = []
     for kind, stem in inventory:
         source = input_root / kind / era / f"{stem}.root"
-        weights = input_root / kind / era / f"{stem}{CONFIG['input']['weight_suffix']}"
+        weights = input_root / kind / era / f"{stem}{STAGE['input']['weight_suffix']}"
         if not source.is_file() or not weights.is_file():
             raise FileNotFoundError(f"missing {source} or {weights}")
         files.append((stem, source, weights))
