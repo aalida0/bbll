@@ -44,6 +44,30 @@ def test_balancing_equalizes_families_cells_and_sb():
                 mass[~missing_cell], decay[~missing_cell], family[~missing_cell])
 
 
+def test_balancing_accepts_nonzero_decay_ids_and_rejects_missing_cells():
+    # Production may encode the 3 decay channels as 1,2,3 rather than 0,1,2.
+    y = np.concatenate([np.zeros(3, dtype=np.int8), np.ones(48, dtype=np.int8)])
+    mass = np.array([0] * 3 + [m for m in SIGNAL_MASSES for _ in range(3)])
+    decay = np.array([-1] * 3 + [d for _ in SIGNAL_MASSES for d in (1, 2, 3)])
+    family = np.array([0, 1, 2] + [-1] * 48)
+    absw = np.ones(len(y))
+    weights = balance(y, absw, mass, decay, family)
+    assert np.isclose(weights[y == 1].sum(), len(y) / 2)
+    assert np.isclose(weights[y == 0].sum(), len(y) / 2)
+    assert np.allclose(weights[y == 1], len(y) / (2 * 48))
+
+    missing = (mass == SIGNAL_MASSES[0]) & (decay == 1)
+    with pytest.raises(ValueError, match="coverage incomplete"):
+        balance(y[~missing], absw[~missing], mass[~missing],
+                decay[~missing], family[~missing])
+
+    only_two_decays = (decay != 3)
+    with pytest.raises(ValueError, match="coverage incomplete"):
+        balance(y[only_two_decays], absw[only_two_decays],
+                mass[only_two_decays], decay[only_two_decays],
+                family[only_two_decays])
+
+
 def test_selected_file_inventory_and_reference_manifest(tmp_path):
     folder = tmp_path / "selected" / "run3"
     folder.mkdir(parents=True)
