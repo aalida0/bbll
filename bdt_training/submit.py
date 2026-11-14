@@ -57,7 +57,7 @@ def main():
     p.add_argument("--submit", action="store_true")
     a = p.parse_args()
     repo, interpreter, selected, out = (
-        a.repo.resolve(), a.python.resolve(), a.selected_root.resolve(),
+        a.repo.resolve(), a.python.absolute(), a.selected_root.resolve(),
         a.output_root.resolve(),
     )
     logs = out / "logs"
