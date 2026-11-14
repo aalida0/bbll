@@ -180,3 +180,38 @@ def test_pilot_rejects_missing_exact_caches_and_wrong_era(tmp_path):
             sample="Wenu_b", sample_id="a", source_id="b",
             output=tmp_path/"result.json"
         )
+
+
+def test_frozen_two_and_three_resolved_cuts_are_distinct(tmp_path, monkeypatch):
+    def pick(channel, threshold):
+        return {
+            "score_threshold": threshold,
+            "efficiency_target": .8,
+            "mt_edges_GeV": [0, 1000, 2000],
+        }
+    rows = {
+        "screen_sha256": "input_sha",
+        "architectures": {
+            "two_channel": {
+                "best_candidates": {
+                    "resolved": pick("resolved", .95),
+                    "boosted": pick("boosted", .6),
+                }
+            },
+            "three_channel": {
+                "best_candidates": {
+                    "resolved": pick("resolved", .98),
+                    "boosted_1tag": pick("boosted_1tag", .8),
+                    "boosted_2tag": pick("boosted_2tag", .9),
+                }
+            }
+        }
+    }
+    monkeypatch.setattr(pilot, "validate_mass", lambda *args: rows)
+    cuts, provenance = pilot.frozen_winners(tmp_path, "run3", 800)
+    assert provenance == "input_sha"
+    assert cuts["resolved_two_channel"]["threshold"] == pytest.approx(.95)
+    assert cuts["resolved"]["threshold"] == pytest.approx(.98)
+    assert cuts["boosted"]["threshold"] == pytest.approx(.6)
+    assert cuts["boosted_1tag"]["threshold"] == pytest.approx(.8)
+    assert cuts["boosted_2tag"]["threshold"] == pytest.approx(.9)
