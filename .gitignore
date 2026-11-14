@@ -4,3 +4,5 @@ __pycache__/
 .venv*/
 *.root
 *.selection.json
+
+/condor/logs/
