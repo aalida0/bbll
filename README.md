@@ -36,7 +36,7 @@ yields, systematics templates, and limits.
 ## 1. Event selection
 
 All Run-2/Run-3 physics settings, sample names, frozen BDT inputs, and
-selection branch names are in **[bbll/analysis.yaml](bbll/analysis.yaml)**.
+selection branch names are in **[bbll/analysis.yaml](bbll/analysis.yaml)** (eras, normalization, samples,\nfeatures) and **[stage1/config.yaml](stage1/config.yaml)** (cuts, ROOT schema).
 The same configuration is used on AF, lxplus, or a laptop. Paths are CLI
 arguments, not site-dependent settings.
 
@@ -82,7 +82,7 @@ python -m pytest -q
 ### Reduce one sample
 
 ```bash
-python -m bbll.selection \
+python -m stage1.selection \
   /path/to/signal/run3/X600_run3.root \
   /path/to/output/run3/X600_run3.root
 ```
@@ -98,7 +98,7 @@ report provides category counts, signed yields, and exact count closure.
 ### Full campaign (16 signals + 10 prompt backgrounds per era)
 
 ```bash
-python -m bbll.campaign \
+python -m stage1.campaign \
   --input-root /path/to/bbll_samples \
   --output-root /path/to/selected \
   --era both \
@@ -140,3 +140,33 @@ artifacts are intentionally not stored in this repository.
 weight sidecars. Publishing the ntuple construction or the inputs themselves
 is a separate requirement for reproduction starting from generator/Delphes
 output.
+
+
+## Publication stages
+
+| Stage | Entry script | Configuration | State |
+|---|---|---|---|
+| 1 Event selection | `stage1/selection.py` and `stage1/campaign.py` | `stage1/config.yaml` | **Validated for both eras** |
+| 2 BDT training | `stage2/train.py` | `stage2/config.yaml` | Not implemented yet |
+| 3 SR optimization | `stage3/optimize.py` | `stage3/config.yaml` | Not implemented yet |
+| 4 Fake backgrounds | `stage4/fakes.py` | `stage4/config.yaml` | Not implemented yet |
+| 5 Systematics | `stage5/templates.py` | `stage5/config.yaml` | Not implemented yet |
+| 6 Expected CLs limits | `stage6/limits.py` | `stage6/config.yaml` | Not implemented yet |
+
+Only Stage 1 contains working production analysis code so far. Stages 2–6
+are deliberate fail-fast placeholders to make the folder structure explicit;
+they cannot produce results. Shared eras, luminosity policy (optional 308/312
+Run-3 scaling), samples, and feature names live in `bbll/analysis.yaml`.
+All Stage-1 event weights remain stored exactly as in the input sidecars.
+
+### Normalization provenance
+
+The Stage-1 reader uses **only canonical merged files** matching
+`<stem>.root` and `<stem>.weights.root`, for instance
+`ttbar_dil_run2.root` and `ttbar_dil_run2.weights.root`.
+It deliberately does not open `_part1`/`_part2` files because those are
+intermediate pieces and counting both merged and split files would duplicate
+events. The nominal selected weights are copied from
+`Weights/weight_nominal`; the reader does not infer or apply any separate
+cross-section factor. The provenance and contents of any *cross-section
+metadata* inside the sidecar still need explicit independent verification.

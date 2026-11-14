@@ -9,20 +9,21 @@ import yaml
 def load_config():
     path = Path(__file__).with_name("analysis.yaml")
     cfg = yaml.safe_load(path.read_text())
-    cuts = cfg["selection"]
-    if (
-        cfg["schema_version"] != 1
-        or cuts["priority"] != "boosted"
-        or cuts["hbb_mass_window_required"] is not False
-        or cuts["boosted_min_tags"] != 1
-        or cuts["categories3"] != ["resolved", "boosted_1tag", "boosted_2tag"]
-        or cuts["categories2"] != ["resolved", "boosted"]
-    ):
-        raise ValueError("unsupported selection contract in analysis.yaml")
+    if cfg["schema_version"] != 1 or set(cfg["eras"]) != {"run2", "run3"}:
+        raise ValueError("unsupported global analysis contract")
     if len(cfg["features"]["resolved"]) != 20 or len(cfg["features"]["boosted"]) != 25:
         raise ValueError("expected frozen 20/25 classifier features")
     return cfg
 
+
+
+
+def load_stage_config(stage):
+    path = Path(__file__).resolve().parents[1] / stage / "config.yaml"
+    cfg = yaml.safe_load(path.read_text())
+    if cfg["schema_version"] != 1:
+        raise ValueError(f"{stage}: unsupported config version")
+    return cfg
 
 def luminosity_scale(era, cfg=None):
     """Multiplicative sidecar-weight correction for physics yields, not selection."""

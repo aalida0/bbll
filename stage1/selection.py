@@ -13,10 +13,17 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import load_config
+from bbll.config import load_config, load_stage_config
 
 CONFIG = load_config()
-CUTS = CONFIG["selection"]
+STAGE = load_stage_config("stage1")
+CUTS = STAGE["selection"]
+if (CUTS["priority"] != "boosted" or CUTS["boosted_min_tags"] != 1
+        or CUTS["hbb_mass_window_required"] is not False
+        or CUTS["categories3"] != ["resolved", "boosted_1tag", "boosted_2tag"]
+        or CUTS["categories2"] != ["resolved", "boosted"]):
+    raise ValueError("unsupported frozen Stage-1 selection")
+INPUT = STAGE["input"]
 RESOLVED = tuple(CONFIG["features"]["resolved"])
 BOOSTED = tuple(CONFIG["features"]["boosted"])
 META = (
@@ -87,10 +94,10 @@ def reduce_sample(
     selected_total = 0
     try:
         with uproot.open(source) as f, uproot.open(weight_source) as wf:
-            if CONFIG["input"]["nominal_tree"] not in f or CONFIG["input"]["weight_tree"] not in wf:
+            if INPUT["nominal_tree"] not in f or INPUT["weight_tree"] not in wf:
                 raise ValueError("missing Analysis_NOSYS or Weights tree")
-            tree, weights = f[CONFIG["input"]["nominal_tree"]], wf[CONFIG["input"]["weight_tree"]]
-            if CONFIG["input"]["weight_branch"] not in weights.keys():
+            tree, weights = f[INPUT["nominal_tree"]], wf[INPUT["weight_tree"]]
+            if INPUT["weight_branch"] not in weights.keys():
                 raise ValueError("missing Weights/weight_nominal")
             if tree.num_entries != weights.num_entries:
                 raise ValueError("nominal/weight entry counts differ")
@@ -104,7 +111,7 @@ def reduce_sample(
                     stop = min(first + chunk_size, tree.num_entries)
                     a = tree.arrays(BRANCHES, entry_start=first,
                                     entry_stop=stop, library="np")
-                    w = weights[CONFIG["input"]["weight_branch"]].array(
+                    w = weights[INPUT["weight_branch"]].array(
                         entry_start=first, entry_stop=stop, library="np"
                     ).astype(np.float64)
                     if not np.all(np.isfinite(w)):
@@ -178,7 +185,7 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=250_000)
     args = parser.parse_args()
     weights = args.weights or args.input.with_name(
-        args.input.stem + CONFIG["input"]["weight_suffix"]
+        args.input.stem + INPUT["weight_suffix"]
     )
     report = reduce_sample(args.input, weights, args.output, args.chunk_size)
     print(json.dumps(report, indent=2, sort_keys=True))

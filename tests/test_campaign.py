@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from bbll.campaign import run_campaign
-from bbll.selection import BRANCHES
+from stage1.campaign import run_campaign
+from stage1.selection import BRANCHES
 
 
 def _write_sample(root: Path, era: str, kind: str, stem: str):

@@ -1,0 +1,20 @@
+schema_version: 1
+
+input:
+  nominal_tree: Analysis_NOSYS
+  weight_tree: Weights
+  weight_branch: weight_nominal
+  weight_suffix: .weights.root
+
+selection:
+  common: pass_common_preselection  # upstream: OS dileptons, trigger, etc.
+  boosted_candidate: largeR_candidate_valid
+  trimmed_candidate: largeR_trim_valid
+  boosted_n_tags: n_tags_inside_largeR
+  boosted_min_tags: 1
+  resolved_candidate: resolved_candidate_valid
+  resolved_b_tags: [resolved_b1_tag, resolved_b2_tag]
+  priority: boosted                 # resolved only if NOT accepted boosted
+  hbb_mass_window_required: false
+  categories3: [resolved, boosted_1tag, boosted_2tag]
+  categories2: [resolved, boosted]   # boosted = 1tag + 2tag
