@@ -16,7 +16,25 @@ from .scan import channel_mask, histogram, load_scores, neff
 
 CONF = load_stage_config("sr_optimization")
 MIN_NEFF = float(CONF["minimum_background_neff_per_bin"])
-MIN_BINS = int(CONF["minimum_mt_bins"])
+def configured_min_bins():
+    """Separate matched-control bin policy from frozen SR-screening policy."""
+    value = CONF.get("matched_split_control", {}).get(
+        "minimum_mt_bins", CONF["minimum_mt_bins"]
+    )
+    if type(value) is not int or value not in (1, 2):
+        raise ValueError(
+            "sr_optimization/config.yaml: matched_split_control."
+            "minimum_mt_bins must be the integer 1 or 2"
+        )
+    return value
+
+
+def select_min_bins(override=None):
+    if override is None:
+        return configured_min_bins()
+    if type(override) is not int or override not in (1, 2):
+        raise ValueError("minimum mT bins must be 1 or 2")
+    return override
 
 
 def boosted_histograms(data, era, mass, threshold, edges):
@@ -80,11 +98,12 @@ def merge_adjacent_bins(rows, boundary):
     return result
 
 
-def invalid_template_reasons(rows, edges):
+def invalid_template_reasons(rows, edges, min_bins=None):
     """Guard all three views against negative yields and low signed N_eff."""
+    min_bins = select_min_bins(min_bins)
     reasons = []
-    if len(edges) - 1 < MIN_BINS:
-        reasons.append("less_than_two_mt_bins")
+    if len(edges) - 1 < min_bins:
+        reasons.append(f"less_than_{min_bins}_mt_bins")
     for channel, row in rows.items():
         s, b, b2 = row["s"], row["b"], row["b2"]
         if float(np.sum(s)) <= 0:
@@ -118,10 +137,13 @@ def violation_score(rows):
 
 
 def matched_templates(data, era, mass, threshold, original_edges,
-                      reference_boosted=None):
+                      reference_boosted=None, min_mt_bins=None):
     """Find common coarsening; never loosen score cuts or relax N_eff."""
+    min_bins = select_min_bins(min_mt_bins)
     edges = np.asarray(original_edges, dtype=np.float64)
-    if len(edges) < MIN_BINS + 1 or not np.all(np.diff(edges) > 0):
+    if (len(edges) < min_bins + 1
+            or not np.all(np.isfinite(edges))
+            or not np.all(np.diff(edges) > 0)):
         raise ValueError("invalid starting bin edges")
     rows = boosted_histograms(data, era, mass, threshold, edges)
 
@@ -138,18 +160,19 @@ def matched_templates(data, era, mass, threshold, original_edges,
     original_nbins = len(edges) - 1
     history = []
     while True:
-        reasons = invalid_template_reasons(rows, edges)
+        reasons = invalid_template_reasons(rows, edges, min_bins=min_bins)
         if not reasons:
             return {
                 "status": "MATCHED_TEMPLATES_VALID",
                 "edges": edges, "rows": rows,
                 "original_nbins": original_nbins,
+                "min_mt_bins": min_bins,
                 "coarsening_steps": history,
                 "reasons": [],
             }
-        if len(edges) - 1 <= MIN_BINS:
+        if len(edges) - 1 <= min_bins:
             return {
-                "status": "NOT_COMPARABLE_UNDER_FROZEN_GUARDS",
+                "status": "NOT_COMPARABLE_UNDER_CONFIGURED_GUARDS",
                 "edges": edges, "rows": rows,
                 "original_nbins": original_nbins,
                 "coarsening_steps": history,
