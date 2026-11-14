@@ -296,3 +296,27 @@ logs under \`<repo>/condor/logs/\` (not on Ceph).
 The first scoring run must be validated against the historical scores,
 per-category \(m_T(HH)\) shapes, and signed background effective statistics
 before using BDT thresholds in a physics fit.
+
+### OOF validation gate
+
+Once the scored sample files exist, audit them against every selected source
+event using `bdt_training.validate_scores`. This compares event IDs, source
+entries, categories, fit variable, **raw signed physics weights**, and
+`event_uid % 5` assignments. It also checks that the saved scores are finite,
+within [0, 1], and exactly reproduce the held-out model for up to 100
+events per sample. Model SHA-256 values are verified against the saved OOF
+metadata.
+
+Pilot after the single-sample score:
+
+```bash
+python -m bdt_training.validate_scores run3 resolved \
+  --selected-root /data/aalida/bbll_rerun_20261114/selected \
+  --output-root /data/aalida/bbll_rerun_20261114 \
+  --sample X600_run3
+```
+
+Following the four full scoring jobs, repeat for every era/topology without
+`--sample`; this creates `oof_validation.json` only after exact campaign
+closure. OOF validation is a *necessary* correctness check, not by itself
+evidence of safe high-score fit templates or absent mass sculpting.
