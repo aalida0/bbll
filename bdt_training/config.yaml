@@ -5,6 +5,7 @@ algorithm: HistGradientBoostingClassifier
 model_variants: {resolved: conservative, boosted: safer}
 folds: 5
 seed: 12345
+runtime: {python: "3.9", numpy: "2.0.2", scikit_learn: "1.6.1"}
 
 # Original deterministic training pool: 1/10 of signal, Z+jets and top;
 # retain all rare prompt "other" samples. FakeSim is never training input.
