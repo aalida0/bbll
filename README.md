@@ -10,6 +10,11 @@ The pipeline is built incrementally: **1. Event selection**, 2. BDT,
 
 ## 1. Event selection
 
+All Run-2/Run-3 physics settings, sample names, frozen BDT inputs, and
+selection branch names are in **[bbll/analysis.yaml](bbll/analysis.yaml)**.
+The same configuration is used on AF, lxplus, or a laptop. Paths are CLI
+arguments, not site-dependent settings.
+
 Requires a nominal `Analysis_NOSYS` tree and an aligned normalized-weight
 sidecar `Weights/weight_nominal` for each signal or prompt-background sample.
 The ntuples must already contain `pass_common_preselection` and reconstructed
@@ -62,7 +67,7 @@ You can also pass `--weights /path/to/weights.root`. Repeat for prompt
 backgrounds and signals in both eras. The resulting ROOT `events` tree retains
 `category3`, `category2`, `event_uid`, `source_entry`, signed `physics_weight`,
 `train_weight_base=abs(physics_weight)`, signal labels, fitted `mt_hh_mH125`,
-and the final 20 resolved/25 boosted BDT input variables. The original\nentry index allows later cross-checks against nominal and varied trees. A `.selection.json`
+and the final 20 resolved/25 boosted BDT input variables. The original entry index allows later cross-checks against nominal and varied trees. A `.selection.json`
 report provides category counts, signed yields, and exact count closure.
 
 ### Full campaign (16 signals + 10 prompt backgrounds per era)
@@ -71,11 +76,11 @@ report provides category counts, signed yields, and exact count closure.
 python -m bbll.campaign \
   --input-root /path/to/bbll_samples \
   --output-root /path/to/selected \
-  --era run3 \
+  --era both \
   --resume
 ```
 
-Repeat with `--era run2`. `--resume` validates both existing ROOT and
+Use `--era run2` or `--era run3` for one period. `--resume` validates both existing ROOT and
 per-sample JSON outputs before reusing them, so completed samples are not
 regenerated after an interruption.
 
@@ -97,7 +102,7 @@ reduction:
 | Run 2 | 8,891,378 | 6,294,727 |
 | Run 3 | 8,899,170 | 6,225,647 |
 
-The campaign writes `<output-root>/<era>/selection_campaign.json` with
+The campaign checks the exact frozen per-era counts from YAML and writes `<output-root>/<era>/selection_campaign.json` with
 per-sample and combined counts. The `source_entry` field identifies the
 entry index in the **input Analysis_NOSYS tree** (not necessarily the original
 generator or raw-Delphes entry).
