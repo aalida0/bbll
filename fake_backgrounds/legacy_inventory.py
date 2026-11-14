@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+import subprocess
+import sys
 from pathlib import Path
 
 from .legacy_raw import SOURCES
@@ -91,6 +93,11 @@ def main():
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--model-root", type=Path)
     parser.add_argument("--source-root", type=Path)
+    parser.add_argument(
+        "--execute", action="store_true",
+        help="After auditing, execute the pilot directly with this Python; "
+             "refuse if required input files are missing or output exists",
+    )
     args = parser.parse_args()
     cmd, paths, output = build_pilot_command(
         args.manifest, args.sample, args.ordinal, args.era, args.mass,
@@ -107,6 +114,32 @@ def main():
     print(" ".join(shlex.quote(item) for item in cmd))
     print(f"\nOutput: {output}")
     print("No intermediate ntuple generation is required.")
+    if args.execute:
+        required = {
+            key: path for key, path in paths.items()
+            if key != "skip_manifest_optional"
+        }
+        missing = [f"{key}: {path}" for key, path in required.items()
+                   if not path.is_file()]
+        if missing:
+            raise FileNotFoundError(
+                "Cannot execute FakeSim pilot; missing required inputs: "
+                + "; ".join(missing)
+            )
+        if args.sample == "ttbar_semileptonic" and not paths[
+                "skip_manifest_optional"].is_file():
+            raise FileNotFoundError(
+                "ttbar pilot requires historical exact-association skip manifest"
+            )
+        if output.exists() or output.with_suffix(output.suffix + ".tmp").exists():
+            raise FileExistsError(
+                f"Refusing to overwrite existing or incomplete pilot: {output}"
+            )
+        executable_command = [sys.executable] + cmd[1:]
+        print("\nExecuting verified raw-Delphes FakeSim pilot:", flush=True)
+        print(" ".join(shlex.quote(arg) for arg in executable_command),
+              flush=True)
+        subprocess.run(executable_command, check=True)
 
 
 if __name__ == "__main__":
