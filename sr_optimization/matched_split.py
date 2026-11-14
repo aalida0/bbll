@@ -135,10 +135,8 @@ def matched_templates(data, era, mass, threshold, original_edges,
             trial = np.delete(edges, k)
             trial_rows = boosted_histograms(data, era, mass, threshold, trial)
             options.append((violation_score(trial_rows), k, trial, trial_rows))
-        _, boundary, edges, rows = min(
+        _, boundary, trial_edges, trial_rows = min(
             options, key=lambda x: (x[0][0], x[0][1], x[1])
         )
-        history.append(float(original_edges[boundary])
-                       if not history else float("nan"))
-        # Store actual removed boundary rather than the index in the old edges.
-        # The above line is replaced below with the removed value at each step.
+        history.append(float(edges[boundary]))
+        edges, rows = trial_edges, trial_rows
