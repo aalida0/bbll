@@ -21,7 +21,7 @@ minimum_mt_bins: 2
 # and effective statistics >= minimum_background_neff_per_bin.
 # 2 = original matched-split comparison. No other SR stage is affected.
 matched_split_control:
-  minimum_mt_bins: 1
+  minimum_mt_bins: 2
 master_mt_edges_GeV: [
   0, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
   1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800,
