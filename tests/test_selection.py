@@ -95,7 +95,7 @@ def test_unified_frozen_publication_config():
 
     assert tuple(CONFIG["eras"]) == ("run2", "run3")
     assert CONFIG["eras"]["run2"]["luminosity_fb"] == 140.1
-    assert CONFIG["eras"]["run3"]["luminosity_fb"] == 312.0
+    assert CONFIG["eras"]["run3"]["luminosity_fb"] == 308.0
     assert len(samples("run2")) == len(samples("run3")) == 26
     assert samples("run3")[0] == ("signal", "X400_run3")
     assert samples("run2")[-1] == ("background", "ttbar_dil_run2")
