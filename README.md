@@ -172,6 +172,30 @@ metadata* inside the sidecar still need explicit independent verification.
 
 ## BDT training
 
+### Reproducible Python environment
+
+**Model training uses Python 3.9**, NumPy 2.0.2 and scikit-learn 1.6.1.
+The training entry point rejects other Python versions or leaked Key4hep
+site-packages; tests may run on other Python versions.
+
+Create a **new** isolated environment rather than reusing an activated
+Key4hep/Python 3.13 environment:
+
+```bash
+unset PYTHONPATH PYTHONHOME
+python3.9 -m venv .venv39
+source .venv39/bin/activate
+python -m pip install -e ".[test]"
+python -m pip check
+python -m bdt_training.environment
+```
+
+If `python3.9` is unavailable on PATH, use another verified Python 3.9
+interpreter to create the venv. On Condor, we do not inherit the login-shell
+environment; Python must be accessible from all workers via the shared
+filesystem. The environment check is run before submission and on every
+worker before model training.
+
 The final all-mass model uses the published frozen 20-feature resolved
 (\`conservative\`) and 25-feature boosted (\`safer\`) classifiers. Training uses
 five deterministic folds (\`event_uid % 5\`), one model per held-out fold,
@@ -209,7 +233,7 @@ condor_submit /path/to/results/logs/bdt_training.sub
 \`\`\`
 
 Or add \`--submit\` to the first command. The generated submit file uses
-the current Python interpreter and repository directory, **1 CPU, 16 GB memory,
+the selected Python interpreter and repository directory, **1 CPU, 16 GB memory,
 4 GB disk per job**, with BLAS/OpenMP thread counts limited to one. No worker
 needs network access, Docker or another git checkout; this assumes a shared
 filesystem (as in the historical AF campaign).
