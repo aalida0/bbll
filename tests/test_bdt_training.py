@@ -93,6 +93,8 @@ def test_selected_file_inventory_and_reference_manifest(tmp_path):
 def test_condor_has_four_jobs_and_no_site_specific_path(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
+    (root / "bdt_training").mkdir()
+    (root / "bdt_training" / "worker.sh").write_text("#!/bin/bash\\n")
     py = tmp_path / "python"
     py.touch()
     inp = tmp_path / "selected"
@@ -101,7 +103,12 @@ def test_condor_has_four_jobs_and_no_site_specific_path(tmp_path):
     assert "run2 resolved" in spec and "run3 boosted" in spec
     assert "request_memory = 16GB" in spec
     assert "request_cpus = 1" in spec
-    assert "should_transfer_files = NO" in spec
+    assert "should_transfer_files = YES" in spec
+    assert "when_to_transfer_output = ON_EXIT" in spec
+    assert "executable = /bin/bash" in spec
+    assert "transfer_input_files = " in spec
+    assert "arguments = worker.sh $(era) $(topology)" in spec
+    assert "FileSystemDomain" not in spec
     assert "getenv = False" in spec
     assert "/home/aalida/" not in spec
     assert "AF.uchicago" not in spec
@@ -182,6 +189,8 @@ def test_submit_preserves_virtualenv_python_symlink(tmp_path, monkeypatch):
     out = tmp_path / "results"
     python = tmp_path / "venv" / "bin" / "python"
     repo.mkdir()
+    (repo / "bdt_training").mkdir()
+    (repo / "bdt_training" / "worker.sh").write_text("#!/bin/bash\\n")
     selected.mkdir()
     python.parent.mkdir(parents=True)
     python.symlink_to(sys.executable)
@@ -193,7 +202,7 @@ def test_submit_preserves_virtualenv_python_symlink(tmp_path, monkeypatch):
     main()
     submit_file = repo / "condor" / "logs" / "bdt_training.sub"
     text = submit_file.read_text()
-    assert f"executable = {python}" in text
+    assert f"arguments = worker.sh $(era) $(topology) {python}" in text
     assert f"log = {repo}/condor/logs/bdt_$(ClusterId).log" in text
     assert str(out / "logs") not in text
 
@@ -233,6 +242,8 @@ def test_submit_respects_explicit_nondefault_log_dir(tmp_path, monkeypatch):
         tmp_path / "ceph_results", tmp_path / "scheduler_logs"
     )
     repo.mkdir()
+    (repo / "bdt_training").mkdir()
+    (repo / "bdt_training" / "worker.sh").write_text("#!/bin/bash\\n")
     selected.mkdir()
     monkeypatch.setattr(sys, "argv", [
         "submit.py", "--repo", str(repo),
@@ -246,3 +257,12 @@ def test_submit_respects_explicit_nondefault_log_dir(tmp_path, monkeypatch):
     assert f"output = {logs}/bdt_$(era)_$(topology)_$(ClusterId).out" in txt
     assert f"--output-root {results}" in txt
     assert not (results / "logs").exists()
+
+
+def test_transferred_worker_launcher_avoids_shell_strict_modes():
+    from pathlib import Path
+    worker = (Path(__file__).resolve().parents[1] / "bdt_training" / "worker.sh").read_text()
+    assert "set -e" not in worker
+    assert "set -u" not in worker
+    assert 'exec "$PYTHON" -m bdt_training.train' in worker
+    assert "unset PYTHONPATH PYTHONHOME" in worker
