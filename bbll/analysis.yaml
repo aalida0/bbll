@@ -2,9 +2,22 @@
 # Selection flags are computed upstream in Analysis_NOSYS; Stage 1 applies them.
 schema_version: 1
 
+# ROOT sidecar weight_nominal already contains the generator cross section and
+# its original luminosity scaling. Never apply a second cross section.
+# To keep the ROOT weights unchanged, set rescale_weights: false.
+# When true, downstream *yield/template* code multiplies by
+# luminosity_fb / weights_luminosity_fb (not the Stage-1 ROOT reducer).
 eras:
-  run2: {sqrt_s_TeV: 13.0, luminosity_fb: 140.1}
-  run3: {sqrt_s_TeV: 13.6, luminosity_fb: 312.0}
+  run2:
+    sqrt_s_TeV: 13.0
+    luminosity_fb: 140.1
+    weights_luminosity_fb: null  # Not independently verified: no correction
+    rescale_weights: false
+  run3:
+    sqrt_s_TeV: 13.6
+    luminosity_fb: 308.0
+    weights_luminosity_fb: 318.0
+    rescale_weights: true
 
 # Validated publication Stage-1 counts for the full 26-sample input campaigns.
 reference_selected_events:
