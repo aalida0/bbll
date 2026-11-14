@@ -39,6 +39,8 @@ def check_output(path: Path, report: dict) -> None:
         tree = f["events"]
         if int(tree.num_entries) != int(report["selected"]):
             raise ValueError(f"{path}: output count differs from report")
+        counts = np.zeros(3, dtype=np.int64)
+        last_entry = -1
         for arrays in tree.iterate(
             ["category3", "category2", "source_entry", "physics_weight",
              "train_weight_base"], step_size="100 MB", library="np"
@@ -49,11 +51,25 @@ def check_output(path: Path, report: dict) -> None:
                 raise ValueError(f"{path}: invalid category3")
             if not np.array_equal(two, np.where(three == 0, 0, 1)):
                 raise ValueError(f"{path}: category2 does not close")
+            counts += np.bincount(three, minlength=3)
+            entry = arrays["source_entry"]
+            if (len(entry) and (
+                entry[0] <= last_entry or np.any(np.diff(entry) <= 0)
+            )):
+                raise ValueError(f"{path}: source entries not strictly ordered")
+            if len(entry):
+                last_entry = int(entry[-1])
             w = arrays["physics_weight"]
             if not np.all(np.isfinite(w)):
                 raise ValueError(f"{path}: nonfinite signed weight")
             if not np.array_equal(arrays["train_weight_base"], np.abs(w)):
                 raise ValueError(f"{path}: training weight is inconsistent")
+        expected_counts = np.asarray(
+            [report["counts"][k] for k in
+             ("resolved", "boosted_1tag", "boosted_2tag")], dtype=np.int64
+        )
+        if not np.array_equal(counts, expected_counts):
+            raise ValueError(f"{path}: per-category counts differ from report")
     if int(report["selected"]) != sum(
         int(report["counts"][k])
         for k in ("resolved", "boosted_1tag", "boosted_2tag")
