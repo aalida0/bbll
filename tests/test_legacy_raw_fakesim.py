@@ -55,7 +55,7 @@ def test_scoring_accepts_nan_missing_geometry_not_infinity():
         "hbb_topology": {"analysis_subcategory_name": "resolved"},
         "observables": {"geometry": float("nan")},
     }
-    assert pilot.score_hypothesis(hypothesis, 7, models) == ("resolved", .8)
+    assert pilot.score_hypothesis(hypothesis, 7, models) == ("resolved", float(np.float32(.8)))
     hypothesis["observables"]["geometry"] = float("inf")
     with pytest.raises(ValueError, match="infinite"):
         pilot.score_hypothesis(hypothesis, 7, models)
