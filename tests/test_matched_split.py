@@ -172,8 +172,8 @@ def test_one_bin_yaml_setting_and_previous_two_bin_guard():
 
     cfg = load_stage_config("sr_optimization")
     assert cfg["minimum_mt_bins"] == 2  # frozen Stage-3 screen remains untouched
-    assert cfg["matched_split_control"]["minimum_mt_bins"] == 1
-    assert configured_min_bins() == 1
+    assert cfg["matched_split_control"]["minimum_mt_bins"] == 2
+    assert configured_min_bins() == 2
 
     data = input_events(tag1=(40, 40, 40), tag2=(3, 3, 5))
     edges = [0., 500., 1000., 2000.]
@@ -183,7 +183,8 @@ def test_one_bin_yaml_setting_and_previous_two_bin_guard():
     assert two_bin["status"] == "NOT_COMPARABLE_UNDER_CONFIGURED_GUARDS"
     assert len(two_bin["edges"]) - 1 == 2
 
-    one_bin = matched_templates(data, "run2", 600, .5, edges)
+    one_bin = matched_templates(data, "run2", 600, .5, edges,
+                                min_mt_bins=1)
     assert one_bin["status"] == "MATCHED_TEMPLATES_VALID"
     assert len(one_bin["edges"]) - 1 == 1
     assert one_bin["min_mt_bins"] == 1
