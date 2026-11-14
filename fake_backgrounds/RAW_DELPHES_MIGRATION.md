@@ -86,3 +86,34 @@ per-entry identity. Do not blindly overwrite an already validated cache.
 If a Run-2 raw FakeSim source or its original normalization summary is
 missing, record that as a physics input blocker rather than substituting
 Run-3 data. We must not equate a 13.6 TeV source ensemble with a 13 TeV one.
+
+## After all three Run-3 files show FOUND
+
+The inventory CLI now supports --execute. It checks the required source, cache
+and normalization paths, passes provenance IDs without shell reinterpretation,
+uses the active Python and refuses to overwrite existing pilot outputs.
+
+Run the following three-source 100-event pilot with --execute:
+
+    cd ~/bbll
+    git pull --ff-only
+    source .venv39/bin/activate
+
+    for sample in Wenu_b Wmunu_b ttbar_semileptonic; do
+      python -m fake_backgrounds.legacy_inventory \
+        --manifest /data/aalida/bbll_ml/fakes/btag_provenance/run3_btag_provenance.json \
+        --sample "$sample" --ordinal 1 --era run3 --mass 800 --events 100 \
+        --legacy-repo ~/bbll-ml-sr \
+        --output-root /data/aalida/bbll_rerun_20261114 \
+        --execute
+      if [ "$?" -ne 0 ]; then
+        echo "FAKESIM PILOT FAILED for $sample — inspect traceback"
+        break
+      fi
+    done
+
+Success means the real raw Delphes objects were decoded and scored using
+the current model and category. Zero high-BDT fake yield after only 100 source
+events is not a physics failure and cannot be extrapolated to full production.
+Full-source calibration, fake-aware optimization, and separate Run-2 input
+verification remain separate validation gates.
