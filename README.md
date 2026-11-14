@@ -363,3 +363,33 @@ bin yields, MC variances, effective event counts and all rejection reasons.
 It is a prerequisite for building the full simultaneous `pyhf` optimization
 with fake-background and systematic-uncertainty models. **Do not describe its
 candidates as final SR definitions until those later checks pass.**
+
+
+### Full two-era, all-mass screening
+
+For the frozen 16 mass points in each era, load both validated OOF
+topologies only **once per era**, rather than reopening 26 ROOT files for
+every mass. The screen remains **prompt-background-only** and does not
+compute limits.
+
+\`\`\`bash
+python -m sr_optimization.scan \
+  --era both --all-masses \
+  --output-root /data/aalida/bbll_rerun_20261114 \
+  --resume
+\`\`\`
+
+The \`--resume\` option verifies and reuses existing mass-point JSON files
+(including the Run-3 600 GeV pilot) and processes missing mass points.
+It refuses incompatible or incomplete saved scan output rather than silently
+overwriting it. The command writes a
+\`sr_optimization/<era>/prompt_screen_campaign.json\` summary for each era.
+For faster initial testing, use \`--era run3 --mass 700\` without
+\`--all-masses\`.
+
+**Interpretation:** "valid" means a particular BDT score threshold admits
+positive signed-background bin yields with \(N_eff\geq10\) and at least two
+retained \(m_T(HH)\) bins. It does not indicate the threshold is optimal.
+The inclusive boosted category and the mutually exclusive boosted 1-tag
+and 2-tag categories are *alternative* likelihood architectures; never
+combine all three in the same likelihood.
