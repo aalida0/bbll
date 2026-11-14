@@ -39,7 +39,11 @@ def pending(root, eras=ERAS, fits_per_shard=50, max_shards=32, mu_max=1e5):
                 # Completed outputs are only reusable if still valid for
                 # current screened data and shortlisted reference.
                 from .exhaustive_campaign import validate_mass
-                validate_mass(root, era, mass)
+                completed = validate_mass(root, era, mass)
+                if completed["mu_max"] != float(mu_max):
+                    raise ValueError(
+                        f"{combined}: completed mu_max does not match requested bound"
+                    )
                 reused.append((era, mass, "merged"))
                 continue
             for index in range(shards):
