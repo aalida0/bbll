@@ -347,3 +347,13 @@ def test_oof_fold_scoring_and_raw_weight_preservation(tmp_path):
     with pytest.raises(FileExistsError):
         score_sample(source, out, "run3", "boosted", features,
                      models, ["test_hash"] * 5)
+    from bdt_training.validate_scores import verify_sample
+
+    audit = verify_sample(source, out, "run3", "boosted",
+                          ["test_hash"] * 5, features, models, spot_events=5)
+    assert audit["events"] == report["events"]
+    assert audit["spot_checked"] == 5
+
+    with pytest.raises(ValueError, match="metadata/model hash"):
+        verify_sample(source, out, "run3", "boosted",
+                      ["corrupt"] * 5, features, models, spot_events=5)
