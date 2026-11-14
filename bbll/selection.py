@@ -13,32 +13,21 @@ from pathlib import Path
 
 import numpy as np
 
-# Stage-3-validated mass-unparameterized model inputs. Feature order is fixed.
-RESOLVED = (
-    "is_same_flavour", "l1_pt", "l2_pt", "mll", "ptll", "dR_ll",
-    "met", "dPhi_ll_met", "mt_l_min_met", "mt_l_max_met",
-    "hbb_dPhi_ll", "hbb_dR_ll", "hbb_pt_balance",
-    "min_dR_lepton_bjet", "n_bjets_outside_hbb", "ht_jets",
-    "resolved_mbb", "resolved_ptbb", "resolved_dRbb", "resolved_dPhibb",
-)
-BOOSTED = (
-    "is_same_flavour", "l1_pt", "l1_eta", "l2_pt", "l2_eta",
-    "mll", "dR_ll", "dPhi_ll", "met", "dPhi_ll_met",
-    "mt_l_min_met", "mt_l_max_met", "mt_ll_met", "hbb_dPhi_ll",
-    "hbb_dR_ll", "hbb_dPhi_met", "hbb_pt_balance",
-    "min_dR_lepton_bjet", "n_jets_outside_hbb",
-    "n_bjets_outside_hbb", "largeR_trim_mass", "largeR_eta",
-    "largeR_tau21", "largeR_tau32", "largeR_nsubjets_trimmed",
-)
+from .config import load_config
+
+CONFIG = load_config()
+CUTS = CONFIG["selection"]
+RESOLVED = tuple(CONFIG["features"]["resolved"])
+BOOSTED = tuple(CONFIG["features"]["boosted"])
 META = (
     "event_uid", "sample_class", "is_signal", "signal_mass_GeV",
     "signal_decay_id", "mt_hh_mH125", "n_tags_inside_largeR",
 )
-FLAGS = (
-    "pass_common_preselection", "resolved_candidate_valid",
-    "resolved_b1_tag", "resolved_b2_tag", "largeR_candidate_valid",
-    "largeR_trim_valid", "min_dR_lepton_bjet_valid",
-)
+FLAGS = tuple(dict.fromkeys((
+    CUTS["common"], CUTS["resolved_candidate"], *CUTS["resolved_b_tags"],
+    CUTS["boosted_candidate"], CUTS["trimmed_candidate"],
+    "min_dR_lepton_bjet_valid",
+)))
 BRANCHES = tuple(dict.fromkeys(RESOLVED + BOOSTED + META + FLAGS))
 
 # category3 = -1 (unselected), 0 (resolved), 1 (boosted 1 tag),
@@ -50,17 +39,17 @@ CAT2 = {"resolved": 0, "boosted": 1}
 
 def categories(a: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     """Exclusive boosted-first topology; identical selected events in both schemes."""
-    common = np.asarray(a["pass_common_preselection"], dtype=bool)
-    tags = np.asarray(a["n_tags_inside_largeR"])
+    common = np.asarray(a[CUTS["common"]], dtype=bool)
+    tags = np.asarray(a[CUTS["boosted_n_tags"]])
     boosted = (
-        common & np.asarray(a["largeR_candidate_valid"], dtype=bool)
-        & np.asarray(a["largeR_trim_valid"], dtype=bool) & (tags >= 1)
+        common & np.asarray(a[CUTS["boosted_candidate"]], dtype=bool)
+        & np.asarray(a[CUTS["trimmed_candidate"]], dtype=bool) & (tags >= 1)
     )
     resolved = (
         common & ~boosted
-        & np.asarray(a["resolved_candidate_valid"], dtype=bool)
-        & np.asarray(a["resolved_b1_tag"], dtype=bool)
-        & np.asarray(a["resolved_b2_tag"], dtype=bool)
+        & np.asarray(a[CUTS["resolved_candidate"]], dtype=bool)
+        & np.asarray(a[CUTS["resolved_b_tags"][0]], dtype=bool)
+        & np.asarray(a[CUTS["resolved_b_tags"][1]], dtype=bool)
     )
 
     three = np.full(len(common), -1, dtype=np.int8)
@@ -97,10 +86,10 @@ def reduce_sample(
     selected_total = 0
     try:
         with uproot.open(source) as f, uproot.open(weight_source) as wf:
-            if "Analysis_NOSYS" not in f or "Weights" not in wf:
+            if CONFIG["input"]["nominal_tree"] not in f or CONFIG["input"]["weight_tree"] not in wf:
                 raise ValueError("missing Analysis_NOSYS or Weights tree")
-            tree, weights = f["Analysis_NOSYS"], wf["Weights"]
-            if "weight_nominal" not in weights.keys():
+            tree, weights = f[CONFIG["input"]["nominal_tree"]], wf[CONFIG["input"]["weight_tree"]]
+            if CONFIG["input"]["weight_branch"] not in weights.keys():
                 raise ValueError("missing Weights/weight_nominal")
             if tree.num_entries != weights.num_entries:
                 raise ValueError("nominal/weight entry counts differ")
@@ -114,7 +103,7 @@ def reduce_sample(
                     stop = min(first + chunk_size, tree.num_entries)
                     a = tree.arrays(BRANCHES, entry_start=first,
                                     entry_stop=stop, library="np")
-                    w = weights["weight_nominal"].array(
+                    w = weights[CONFIG["input"]["weight_branch"]].array(
                         entry_start=first, entry_stop=stop, library="np"
                     ).astype(np.float64)
                     if not np.all(np.isfinite(w)):
@@ -125,7 +114,7 @@ def reduce_sample(
                         raise AssertionError("two-/three-category selection differs")
 
                     counts["input"] += len(three)
-                    counts["common"] += int(np.count_nonzero(a["pass_common_preselection"]))
+                    counts["common"] += int(np.count_nonzero(a[CUTS["common"]]))
                     for label, cat_id in CAT3.items():
                         in_cat = three == cat_id
                         counts[label] += int(np.count_nonzero(in_cat))
@@ -188,7 +177,7 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=250_000)
     args = parser.parse_args()
     weights = args.weights or args.input.with_name(
-        args.input.stem + ".weights.root"
+        args.input.stem + CONFIG["input"]["weight_suffix"]
     )
     report = reduce_sample(args.input, weights, args.output, args.chunk_size)
     print(json.dumps(report, indent=2, sort_keys=True))
