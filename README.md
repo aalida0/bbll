@@ -393,3 +393,48 @@ retained \(m_T(HH)\) bins. It does not indicate the threshold is optimal.
 The inclusive boosted category and the mutually exclusive boosted 1-tag
 and 2-tag categories are *alternative* likelihood architectures; never
 combine all three in the same likelihood.
+
+
+### Prompt-only expected-CLs architecture comparison (diagnostic)
+
+After all 16 mass points have been screened, compare the exclusive
+**resolved + inclusive boosted** likelihood against **resolved + boosted
+1-tag + boosted 2-tag**. Never include inclusive boosted and its split
+categories in the same workspace.
+
+Install the pinned optional statistics stack in the clean Python 3.9 venv:
+
+\`\`\`bash
+cd ~/bbll
+source .venv39/bin/activate
+python -m pip install -e ".[stats]"
+python -m pip check
+\`\`\`
+
+Run one pilot (computes all viable single-channel expected limits and
+then evaluates the best three candidates from each channel in the two
+simultaneous architectures):
+
+\`\`\`bash
+python -m sr_optimization.compare_architectures \
+  --era run3 --mass 600 --shortlist 3 \
+  --output-root /data/aalida/bbll_rerun_20261114
+\`\`\`
+
+Output: \`sr_optimization/run3/m600/prompt_pyhf_top3.json\`.
+The JSON records best individual and combined choices, the per-channel
+thresholds and bins, all failed fits, an input-SHA256, and the ratio of
+two-channel to three-channel median expected 95% CLs limits. Ratio **above
+1** favours the three-category architecture in this restricted model.
+The shortlist is a computational shortcut; it is explicitly **not**
+an exhaustive global optimum. Use \`--shortlist 11\` to include all
+surviving candidates, noting that the three-channel combinatorics are
+much more expensive.
+
+The only nuisance parameters here are aggregate background \`shapesys\`
+MC-stat uncertainties. **Fake/nonprompt backgrounds, signal MC-stat,
+and detector/theory systematics are absent.** The result reports
+\`mu\` relative to the saved signal templates; do not label the values
+as fb until generator/sidecar signal normalization has been independently
+certified. Any failed fit makes the result \`INCOMPLETE\` and suppresses
+the architecture ratio. The full publication inference remains separate.
