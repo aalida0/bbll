@@ -11,7 +11,17 @@ signal_efficiency_grids:
   boosted_1tag: [0.95, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.15, 0.10]
   boosted_2tag: [0.95, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20]
 minimum_background_neff_per_bin: 10.0
+# Frozen publication-oriented SR candidate screen and original prompt-only
+# comparison require >=2 mT(HH) bins. Do not change for the matched study.
 minimum_mt_bins: 2
+
+# Controlled split-vs-inclusive ablation has a separate MINIMUM bin count.
+# 1 = permit merging boosted mT(HH) all the way to a single cut-and-count
+# bin ONLY IF both tag categories still have positive signed background
+# and effective statistics >= minimum_background_neff_per_bin.
+# 2 = original matched-split comparison. No other SR stage is affected.
+matched_split_control:
+  minimum_mt_bins: 1
 master_mt_edges_GeV: [
   0, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
   1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800,
