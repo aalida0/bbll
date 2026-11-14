@@ -55,13 +55,19 @@ def main():
     p.add_argument("--output-root", type=Path, required=True)
     p.add_argument("--python", type=Path, default=Path(sys.executable))
     p.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
+    p.add_argument(
+        "--log-dir", type=Path,
+        help="HTCondor-approved log directory (default: <repo>/condor/logs, not /data)",
+    )
     p.add_argument("--submit", action="store_true")
     a = p.parse_args()
     repo, interpreter, selected, out = (
         a.repo.resolve(), a.python.absolute(), a.selected_root.resolve(),
         a.output_root.resolve(),
     )
-    logs = out / "logs"
+    # Condor event logs must not reside on Ceph. In AF, the input/model
+    # files are on /data (Ceph), but the repository is on /home.
+    logs = (a.log_dir if a.log_dir is not None else repo / "condor" / "logs").resolve()
     spec = build_submit(repo, interpreter, selected, out, logs)
     path = logs / "bdt_training.sub"
     path.write_text(spec)
