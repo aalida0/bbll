@@ -568,3 +568,83 @@ separate cut-and-count diagnostic, not as a nominal SR or replacement limit.
 To reproduce that alternate diagnostic, change only
 `matched_split_control.minimum_mt_bins` to 1; do **not** change
 the top-level `minimum_mt_bins` or regenerate the frozen SR scan.
+
+
+### Exhaustive prompt-only BDT threshold optimization (all 32 mass points)
+
+After the short-three Condor campaign and signed-MC-stat screening have passed,
+the following jobset exhaustively evaluates **every valid threshold
+combination**, independently for the 2-category and 3-category architectures.
+It uses exactly the same prompt-only HistFactory likelihood as the top-three
+run (background shapesys only) and preserves the frozen \`minimum_mt_bins: 2\`
+and \`minimum_background_neff_per_bin: 10\`. No OOF ROOT tree is regenerated.
+
+**Print the BDT score cuts already chosen by the top-three scan**:
+
+\`\`\`bash
+cd ~/bbll
+git pull --ff-only
+source .venv39/bin/activate
+python -m sr_optimization.threshold_report \
+  --era both --source top3 --architecture three_channel \
+  --output-root /data/aalida/bbll_rerun_20261114
+\`\`\`
+
+Each printed number is the lower BDT score threshold used for a specific
+\`(era, mass, channel)\`: \`ml_score >= score_threshold\`. The 2-category
+architecture has distinct resolved/inclusive-boosted cuts. The score
+threshold is *not* the target signal efficiency (e.g. 0.8).
+
+**Plan**, then **submit** the exhaustive Condor shards:
+
+\`\`\`bash
+python -m sr_optimization.exhaustive_submit \
+  --era both --fits-per-shard 50 --max-shards 32 \
+  --output-root /data/aalida/bbll_rerun_20261114
+
+python -m sr_optimization.exhaustive_submit \
+  --era both --fits-per-shard 50 --max-shards 32 \
+  --output-root /data/aalida/bbll_rerun_20261114 --submit
+\`\`\`
+
+- Shard assignments are exact and disjoint over the complete Cartesian
+  product of viable BDT threshold candidates, for each architecture.
+- Existing successful shards are validated and skipped on rerun.
+- Existing **failed, incomplete or stale** shards are refused: inspect the
+  error report and move the affected shard JSON aside before retrying.
+- Condor logs are written under \`<repo>/condor/logs\` on \`/home\`;
+  inputs, fitted results and reference JSON are under \`/data\`. Only the
+  launcher is transferred to the worker. The script avoids \`set -e/-u\`.
+- The 2-channel and 3-channel likelihood architectures remain exclusive.
+- Do not modify \`--fits-per-shard\` or \`--max-shards\` between submission
+  and merging: those settings determine the fixed shard count per mass.
+
+**After all shard jobs finish**, enforce 32-mass fit closure and export the
+exhaustive optimum and the selected BDT score thresholds:
+
+\`\`\`bash
+python -m sr_optimization.exhaustive_campaign \
+  --era both --fits-per-shard 50 --max-shards 32 \
+  --output-root /data/aalida/bbll_rerun_20261114
+
+python -m sr_optimization.threshold_report \
+  --era both --source exhaustive --architecture three_channel \
+  --output-root /data/aalida/bbll_rerun_20261114
+\`\`\`
+
+The merger rejects any missing/failed fit, verifies saved screen/top-three
+input SHA-256 values and candidate identities, and checks that the
+exhaustive expected CLs optimum is **no worse** than the previous top-three
+result. The automatically exported files are:
+
+- \`sr_optimization/prompt_pyhf_exhaustive_campaign.json\` — all 32
+  exhaustive architecture results;
+- \`sr_optimization/prompt_pyhf_exhaustive_thresholds.csv\` — chosen numerical
+  BDT score thresholds and efficiency targets, separately for each
+  era/mass/channel/architecture;
+- \`sr_optimization/<era>/m<mass>/prompt_pyhf_exhaustive.json\` — the exact
+  per-mass winning combination, edges, yields and provenance.
+
+These are still **PROMPT-ONLY diagnostics**, not final fb-normalized
+publication limits. The final SR choices must be reevaluated once fake
+backgrounds and experimental/theoretical uncertainties are available.
