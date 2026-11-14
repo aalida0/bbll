@@ -75,7 +75,7 @@ have zero high-score candidate yields without invalidating reconstruction.
 This creates three Condor jobs, one Wenu_b, one Wmunu_b and one ttbar
 source. The code requests 1 CPU, 6 GB RAM and 4 GB disk per job with the
 shared /home and /data AF filesystem, 500-event decoding chunks and the
-current 3-fold architecture candidate grids. Each job preserves one
+current two-/three-channel SR candidate grids. Each job preserves one
 source event as one MC-statistical unit.
 
 Inspect:
