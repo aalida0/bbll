@@ -85,8 +85,9 @@ def test_common_binning_coarsens_both_tags_together():
 def test_refuses_matched_comparison_if_split_cannot_retain_two_bins():
     data = input_events(tag1=(40, 40, 40), tag2=(3, 3, 3))
     out = matched_templates(data, "run2", 600, 0.5,
-                            [0., 500., 1000., 2000.])
-    assert out["status"] == "NOT_COMPARABLE_UNDER_FROZEN_GUARDS"
+                            [0., 500., 1000., 2000.],
+                            min_mt_bins=2)
+    assert out["status"] == "NOT_COMPARABLE_UNDER_CONFIGURED_GUARDS"
     assert len(out["edges"]) - 1 == 2
     assert any("boosted_2tag" in s for s in out["reasons"])
 
@@ -142,7 +143,7 @@ def test_matched_control_recomputes_both_architectures_with_identical_bins(
                         lambda root, era, topology: data)
     calls = []
 
-    def fake_limit(rows, mu_max):
+    def fake_limit(rows, mu_max, min_mt_bins=None):
         channels = tuple(r["channel"] for r in rows)
         calls.append((channels, [r["edges_GeV"] for r in rows]))
         return (10.0 if "boosted" in channels else 8.0), "mock"
@@ -161,3 +162,53 @@ def test_matched_control_recomputes_both_architectures_with_identical_bins(
     assert calls[-2][1][1] == calls[-1][1][1] == calls[-1][1][2]
     with pytest.raises(FileExistsError):
         control.compare_matched(tmp_path, era, mass)
+
+
+def test_one_bin_yaml_setting_and_previous_two_bin_guard():
+    from sr_optimization.matched_split import (
+        configured_min_bins, invalid_template_reasons,
+    )
+    from bbll.config import load_stage_config
+
+    cfg = load_stage_config("sr_optimization")
+    assert cfg["minimum_mt_bins"] == 2  # frozen Stage-3 screen remains untouched
+    assert cfg["matched_split_control"]["minimum_mt_bins"] == 1
+    assert configured_min_bins() == 1
+
+    data = input_events(tag1=(40, 40, 40), tag2=(3, 3, 5))
+    edges = [0., 500., 1000., 2000.]
+    two_bin = matched_templates(
+        data, "run2", 600, .5, edges, min_mt_bins=2
+    )
+    assert two_bin["status"] == "NOT_COMPARABLE_UNDER_CONFIGURED_GUARDS"
+    assert len(two_bin["edges"]) - 1 == 2
+
+    one_bin = matched_templates(data, "run2", 600, .5, edges)
+    assert one_bin["status"] == "MATCHED_TEMPLATES_VALID"
+    assert len(one_bin["edges"]) - 1 == 1
+    assert one_bin["min_mt_bins"] == 1
+    assert not invalid_template_reasons(
+        one_bin["rows"], one_bin["edges"], min_bins=1
+    )
+    for ch in ("boosted", "boosted_1tag", "boosted_2tag"):
+        r = one_bin["rows"][ch]
+        assert r["b"][0] > 0
+        assert r["b"][0]**2 / r["b2"][0] >= 10
+
+
+def test_one_bin_neff_is_never_waived():
+    data = input_events(tag1=(40, 40, 40), tag2=(3, 3, 3))
+    out = matched_templates(
+        data, "run2", 600, .5, [0., 500., 1000., 2000.],
+        min_mt_bins=1
+    )
+    assert out["status"] == "NOT_COMPARABLE_UNDER_CONFIGURED_GUARDS"
+    assert len(out["edges"]) - 1 == 1
+    assert "boosted_2tag:low_background_neff" in out["reasons"]
+
+
+def test_min_mt_bins_parameter_validation():
+    from sr_optimization.matched_split import select_min_bins
+    for invalid in (0, 3, 1.0, True, "1"):
+        with pytest.raises(ValueError, match="1 or 2"):
+            select_min_bins(invalid)
