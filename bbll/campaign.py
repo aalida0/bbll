@@ -162,6 +162,13 @@ def run_campaign(
     boosted = totals["boosted_1tag"] + totals["boosted_2tag"]
     if resolved + boosted != sum(row["selected"] for row in rows):
         raise AssertionError("campaign-wide category closure failed")
+    if expected is None:
+        frozen = CONFIG["reference_selected_events"][era]
+        if (resolved, boosted) != (frozen["resolved"], frozen["boosted"]):
+            raise ValueError(
+                f"{era}: full campaign differs from frozen reference counts: "
+                f"new={(resolved, boosted)}, expected={frozen}"
+            )
     result = {
         "status": "PASS",
         "era": era,
