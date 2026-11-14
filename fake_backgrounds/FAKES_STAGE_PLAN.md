@@ -1,5 +1,67 @@
 # Fake/nonprompt leptons — bbll phenomenology Stage 4
 
+> **2026-11-14 correction — PRIMARY PATH IS LEGACY FAKESIM REUSE.**
+> The previous F0–F4 SS/OS transfer plan below is retained as an optional
+> diagnostic only; it is not the proposed primary fake implementation.
+> The existing `aalida0/bbll-ml-sr` repository already contains a full
+> simulation-based jet-to-lepton FakeSim chain and historical 4-million-event
+> Run-3 production. Reuse its actual object-level jet fake mechanics,
+> calibrations, benchmark model variations, covariance and fake-aware
+> pyhf machinery. **Do not replace it with an invented or new SS estimator.**
+>
+> Verified legacy modules:
+>
+> - `scripts/data/fakesim_reco.py` and
+>   `scripts/data/fakesim_hbb_topology.py` — jet-to-fake lepton injection
+>   and exclusive Higgs reconstruction.
+> - `scripts/data/fakesim_public_benchmarks.py` — Dror/Curtin
+>   public-literature benchmarks; source-flavour effects and charge weights.
+> - `scripts/data/produce_run3_fakesim_benchmark_shard.py` — 4M-source
+>   Run-3 signal-side replica and sample-scale template producer.
+> - `scripts/stats/fakesim_background.py` — event-level second moments,
+>   bin merging, master-template statistics.
+> - `scripts/stats/fakesim_likelihood.py` — correlated fake normalization
+>   and model-envelope histosys.
+>
+> **Blocking difference confirmed in the actual producer**:
+> `produce_run3_fakesim_benchmark_shard.py`, line ~621, contains
+> `if not mass_window or category == "none" or score is None: continue`.
+> The current nominal `bbll` selection explicitly has
+> `hbb_mass_window_required: false`. Historical Run-3 FakeSim *templates*
+> therefore select the wrong event population for our analysis. The old
+> progress log itself identifies this physics bug (PROGRESS.md §47).
+> Correct the gate and rerun **the existing reconstruction/templating** as
+> needed, not event generation or FakeSim framework development.
+>
+> Required adaptation:
+>
+> 1. Inventory legacy executable modules and historical Run-3 raw sources
+>    `Wenu_b`, `Wmunu_b`, `ttbar_semileptonic`, plus Run-2 raw
+>    FakeSim availability. Historical notes sometimes say Run-2 raw inputs
+>    were unavailable; check the present AF filesystem before inferring.
+> 2. Remove the obsolete Hbb-window veto in the FakeSim producer, keeping
+>    the resolved/boosted category and all other frozen nominal cuts.
+>    Add an explicit regression asserting no Hbb mass-window requirement.
+> 3. Score FakeSim hypotheses with the **current** `bbll` frozen OOF
+>    5-fold model bank and features, not old trained-model score maps.
+>    Check model provenance, score features, and category closure.
+> 4. Calibrate to the cited *public* Run-3 ATLAS 13.6-TeV e-mu inclusive
+>    fake/nonprompt anchor, with correct luminosity and source coverage.
+>    Historical FakeSim normalization kappas cannot be presumed unchanged
+>    once object selection changes.
+> 5. Rebuild matched Run-2/Run-3, mass-dependent fake templates and
+>    fake variation envelopes at the exhaustive candidate thresholds.
+>    Track source-level signed weights and event-level sumw2/covariance.
+> 6. Validate full/partial closure and non-overlap with the 10 ordinary
+>    prompt background samples before constructing **new** fake-aware fits.
+>    Preserve all previous prompt-only outputs without modification.
+>
+> This is the basis of the upcoming implementation. The former SS
+> transfer-factor prototype `fake_backgrounds/fakes.py` remains a
+> non-nominal standalone diagnostic until explicitly justified; its
+> synthetic tests do not validate real fake templates.
+>
+
 **Status: MC_TRANSFER_PROTOTYPE_TESTED; PHYSICS INPUTS AND CLOSURE NOT YET VALIDATED.**
 
 This is a pure-MC Delphes phenomenology study (no observed collision data).
