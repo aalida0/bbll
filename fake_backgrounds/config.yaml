@@ -1,2 +1,23 @@
 schema_version: 1
-status: not_implemented
+status: SIMULATED_FAKES_PROTOTYPE_NOT_VALIDATED
+# This is a standalone MC-only feasibility/closure study, NOT a data-driven
+# fake-background estimate and NOT an input to the nominal pyhf likelihood.
+mode: mc_closure_only
+source: ATL-COM-PHYS-2024-862 Section 7.3 (23 Jan 2026)
+note_method: same_sign_prompt_subtraction_and_mc_os_ss_transfer
+# The note explicitly lists 11 subleading-lepton pT intervals (12 edges).
+# Section 9.1.1 also says "12 variations", which must be resolved against
+# the actual ATLAS distribution before transferring any uncertainties.
+subleading_lepton_pt_edges_GeV: [10, 12, 14, 16, 18, 20, 25, 30, 35, 40, 60, 80]
+out_of_range_policy: reject
+minimum_transfer_neff_per_pt_bin: 10.0
+signed_weight_policy: preserve_signed_sums_and_sumw2
+independent_calibration_validation_required: true
+require_charge_and_truth_origin: true
+require_identical_os_ss_baseline_except_charge: true
+double_counting_guard: prompt_os_templates_must_exclude_nonprompt
+input_contract:
+  # Raw MC must expose a defensible truth-origin flag, not an inferred fake rate.
+  required_columns: [event_uid, l1_charge, l2_charge, l2_pt, mt_hh_mH125, physics_weight, is_prompt_lepton1, is_prompt_lepton2]
+  required_labels: [sample_id, era, simulation_campaign]
+fit_integration_allowed: false
