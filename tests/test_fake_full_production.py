@@ -138,7 +138,7 @@ def test_raw_full_producer_short_smoke_preserves_100_event_units(
     monkeypatch.setattr(full_shard,"score_hypothesis",
                         lambda hypothesis,uid,scores:("resolved",.95))
 
-    fake=SimpleNamespace(
+    fake=dict(
         raw=SimpleNamespace(
             LOGICAL={"fake":"fake"},
             load_reco_events=lambda raw,entry_start,entry_stop,**kw:(
