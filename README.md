@@ -259,3 +259,40 @@ public training implementation still requires real-data AUC and event-count
 comparison with the previous model banks before the new models are considered
 publication-validated. Full-event OOF scoring is a separate follow-up within
 \`bdt_training\`, after this model-bank validation.
+
+
+### Full-event out-of-fold BDT scores
+
+After confirming the 20 classifier models are present and match the historical
+AUC benchmarks, score **every selected event** with its own held-out model:
+\`fold = event_uid % 5\` and \`score = model[fold].predict_proba(features)[1]\`.
+Unlike training, scoring does **not** apply 1/10 subsampling and does not
+reweight events. The compact ROOT trees preserve \`physics_weight\` (signed,
+uncorrected), \`mt_hh_mH125\`, both category labels, \`source_entry\`,
+\`event_uid\`, the signal labels, \`ml_score\` and \`oof_fold\`.
+
+Pilot on a single sample, then submit the full four-job campaign:
+
+\`\`\`bash
+python -m bdt_training.score run3 resolved \
+  --selected-root /data/aalida/bbll_rerun_20261114/selected \
+  --output-root /data/aalida/bbll_rerun_20261114 \
+  --sample X600_run3
+
+python -m bdt_training.submit \
+  --mode score \
+  --selected-root /data/aalida/bbll_rerun_20261114/selected \
+  --output-root /data/aalida/bbll_rerun_20261114 \
+  --submit
+\`\`\`
+
+Scores are stored separately by era/topology/sample:
+\`<output-root>/bdt_scores/<era>/<topology>/<sample>.root\`. A per-sample
+\`.oof.json\` report records the model hashes and raw weight sum, and
+\`oof_campaign.json\` verifies exact preselection event-count closure. Worker
+jobs use \`--resume\` to reuse validated partial campaigns, and write Condor
+logs under \`<repo>/condor/logs/\` (not on Ceph).
+
+The first scoring run must be validated against the historical scores,
+per-category \(m_T(HH)\) shapes, and signed background effective statistics
+before using BDT thresholds in a physics fit.
