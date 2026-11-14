@@ -255,7 +255,7 @@ def test_submit_respects_explicit_nondefault_log_dir(tmp_path, monkeypatch):
     assert (logs / "bdt_training.sub").exists()
     txt = (logs / "bdt_training.sub").read_text()
     assert f"output = {logs}/bdt_$(era)_$(topology)_$(ClusterId).out" in txt
-    assert f"--output-root {results}" in txt
+    assert f" {selected} {results}" in txt
     assert not (results / "logs").exists()
 
 
