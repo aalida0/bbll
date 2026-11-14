@@ -1,7 +1,7 @@
 # bbll
 
 Minimal, platform-independent reproduction code for expected limits on
-(pp\to X\to HH\to b\bar b\ell\ell + E_\mathrm{T}^\mathrm{miss})
+`pp -> X -> HH -> bbll + MET`
 at 13 TeV (Run 2) and 13.6 TeV (Run 3).
 
 The pipeline is built incrementally: **1. Event selection**, 2. BDT,
@@ -60,9 +60,9 @@ python -m bbll.selection \
 The sidecar is discovered as `X600_run3.weights.root` alongside the input.
 You can also pass `--weights /path/to/weights.root`. Repeat for prompt
 backgrounds and signals in both eras. The resulting ROOT `events` tree retains
-`category3`, `category2`, `event_uid`, signed `physics_weight`,
+`category3`, `category2`, `event_uid`, `source_entry`, signed `physics_weight`,
 `train_weight_base=abs(physics_weight)`, signal labels, fitted `mt_hh_mH125`,
-and the final 20 resolved/25 boosted BDT input variables. A `.selection.json`
+and the final 20 resolved/25 boosted BDT input variables. The original\nentry index allows later cross-checks against nominal and varied trees. A `.selection.json`
 report provides category counts, signed yields, and exact count closure.
 
 Input and output paths are CLI arguments: no AF, lxplus, EOS, AFS, Condor,
