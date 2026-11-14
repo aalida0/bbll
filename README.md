@@ -8,6 +8,31 @@ The pipeline is built incrementally: **1. Event selection**, 2. BDT,
 3. signal-region optimization, 4. fake backgrounds, 5. systematic templates,
 6. `pyhf` expected limits. Only validated code is added to `main`.
 
+## Luminosity and normalized ROOT weights
+
+The aligned `Weights/weight_nominal` sidecars **already include the sample cross
+sections and the reference luminosity**; do not multiply by cross section again.
+The single `bbll/analysis.yaml` specifies both the reference and target
+luminosities. For Run 3, sidecars are normalized to **312 fb⁻¹** and the
+publication target is **308 fb⁻¹**.
+
+```yaml
+run3:
+  sqrt_s_TeV: 13.6
+  luminosity_fb: 308.0
+  weights_luminosity_fb: 312.0
+  rescale_weights: true
+```
+
+With `rescale_weights: true`, later yield/template code uses
+`analysis_weights(weight_nominal, "run3")` (scale = **308/312**).
+With `false`, it uses the original weights (scale = 1).
+Run 2 currently has `rescale_weights: false` because its weight reference
+luminosity has not been independently confirmed. The selected ROOT
+`physics_weight` and `train_weight_base` remain **raw** in either mode;
+the luminosity correction is applied **once** when constructing expected
+yields, systematics templates, and limits.
+
 ## 1. Event selection
 
 All Run-2/Run-3 physics settings, sample names, frozen BDT inputs, and
