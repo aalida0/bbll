@@ -6,6 +6,11 @@ eras:
   run2: {sqrt_s_TeV: 13.0, luminosity_fb: 140.1}
   run3: {sqrt_s_TeV: 13.6, luminosity_fb: 312.0}
 
+# Validated publication Stage-1 counts for the full 26-sample input campaigns.
+reference_selected_events:
+  run2: {resolved: 8891378, boosted: 6294727}
+  run3: {resolved: 8899170, boosted: 6225647}
+
 samples:
   signal_masses_GeV: [400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000, 2500, 3000, 3500, 4000]
   prompt_backgrounds: [Zee, Zmumu, Ztautau, ggH_WW, llnunu_OS, tW, ttH_dil, ttW, ttZ, ttbar_dil]
