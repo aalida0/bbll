@@ -13,6 +13,7 @@ No intermediary ttbar/Wjets selected ntuples are generated.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -84,9 +85,12 @@ def plan(root, provenance, source_root, first_each=False,
     }
 
 
-def render_submit(root, rows):
+def render_submit(root, output_root, rows):
     root=Path(root)
-    work=root/"condor"/"work"/"run3_fakesim_current"
+    output_root=Path(output_root)
+    batch_payload="\\n".join(f"{r[\"sample\"]}:{int(r[\"ordinal\"])}" for r in rows)
+    batch_id=hashlib.sha256(batch_payload.encode()).hexdigest()[:12]
+    work=root/"condor"/"work"/"run3_fakesim_current"/("batch_"+batch_id)
     logs=root/"condor"/"logs"/"run3_fakesim_current"
     worker=root/"fake_backgrounds"/"full_worker.sh"
     if not worker.is_file():
@@ -100,7 +104,7 @@ def render_submit(root, rows):
             raise FileExistsError(f"refusing to overwrite existing campaign plan: {path}")
     lines=[]
     for row in rows:
-        prefix=shard_prefix(Path("/data/aalida/bbll_rerun_20261114"),
+        prefix=shard_prefix(output_root,
                             row["sample"],row["ordinal"])
         fields=[
             _safe_condor_token(row["sample"]),
@@ -168,7 +172,7 @@ def main():
     if not args.submit:
         print("DRY RUN. Pass --one-per-sample --submit for the 3-job production smoke.")
         return
-    submit,queue=render_submit(args.repo,selection)
+    submit,queue=render_submit(args.repo,args.output_root,selection)
     print(f"HTCondor submit file    : {submit}")
     print(f"HTCondor selected jobs  : {queue}")
     completed=subprocess.run(
