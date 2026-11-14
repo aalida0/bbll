@@ -479,3 +479,52 @@ exclusivity and the input-screen hashes, and emits
 mass-by-mass table of the two-/three-channel ratio and its corresponding
 percentage reduction in the expected upper limit. The architecture
 comparison remains prompt-only and **not** publication-ready.
+
+
+### Controlled boosted-split architecture ablation
+
+The two-era full-mass prompt-only results are recorded in
+[sr_optimization/PROMPT_PYHF_FULL_MASS_RESULTS.md](sr_optimization/PROMPT_PYHF_FULL_MASS_RESULTS.md).
+The top-three-shortlist comparison allows distinct thresholds and
+\(m_T(HH)\) binning in the two likelihood architectures, so it cannot
+isolate the gain from category splitting.
+
+The independent \`sr_optimization.matched_split_control\` instead
+anchors to the best **two-channel** shortlisted candidate and:
+
+- preserves its resolved score cut and resolved histogram unchanged;
+- applies the *same inclusive-boosted BDT threshold* to both boosted
+  1-tag and 2-tag subcategories;
+- checks signed signal/background yields and \`sumw2\` close exactly
+  between inclusive and partitioned boosted events;
+- coarsens only **common** boosted \(m_T(HH)\) edges when necessary to
+  satisfy the original per-bin positive-background, \(N_eff >= 10\),
+  minimum-two-bin and nonnegative-signal requirements in both tags;
+- recomputes both CLs limits using the **same thresholds and edges**.
+  Only the category partition and associated per-channel shapesys
+  nuisance structure differ.
+
+Run the peak-sensitivity and high-mass-reversal benchmark controls:
+
+\`\`\`bash
+cd ~/bbll
+git pull --ff-only
+source .venv39/bin/activate
+
+python -m sr_optimization.matched_split_control \
+  --era run3 --mass 800 --shortlist 3 \
+  --output-root /data/aalida/bbll_rerun_20261114
+
+python -m sr_optimization.matched_split_control \
+  --era run2 --mass 3000 --shortlist 3 \
+  --output-root /data/aalida/bbll_rerun_20261114
+\`\`\`
+
+Each mass writes \`prompt_matched_split_top3.json\` beside its previous
+comparison. When a fixed-threshold split cannot retain two jointly
+statistically acceptable \(m_T(HH)\) bins, the command records
+\`NOT_COMPARABLE_UNDER_FROZEN_GUARDS\` and does **not** compute an
+invalid limit. A successful matched comparison records
+\`PASS_MATCHED_SPLIT_CONTROL\`. This is still a **prompt-only**
+diagnostic; fake backgrounds, full correlated nuisance parameters
+and final normalization checks remain required.
