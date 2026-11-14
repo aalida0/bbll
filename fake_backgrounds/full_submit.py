@@ -88,7 +88,7 @@ def plan(root, provenance, source_root, first_each=False,
 def render_submit(root, output_root, rows):
     root=Path(root)
     output_root=Path(output_root)
-    batch_payload="\\n".join(f"{r[\"sample\"]}:{int(r[\"ordinal\"])}" for r in rows)
+    batch_payload = "|".join("{}:{}".format(row["sample"], int(row["ordinal"])) for row in rows)
     batch_id=hashlib.sha256(batch_payload.encode()).hexdigest()[:12]
     work=root/"condor"/"work"/"run3_fakesim_current"/("batch_"+batch_id)
     logs=root/"condor"/"logs"/"run3_fakesim_current"
