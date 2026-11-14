@@ -18,8 +18,13 @@ from bbll.config import load_stage_config
 
 
 def build_submit(repo: Path, python: Path, selected: Path,
-                 output: Path, logs: Path):
-    cfg = load_stage_config("bdt_training")["condor"]
+                 output: Path, logs: Path, mode="train"):
+    stage = load_stage_config("bdt_training")
+    if mode not in ("train", "score"):
+        raise ValueError(f"unknown Condor mode: {mode}")
+    cfg = stage["condor"] if mode == "train" else stage["scoring"]["condor"]
+    prefix = "bdt" if mode == "train" else "bdt_oof"
+    mode_arg = "" if mode == "train" else "score "
     for p in (repo, python, selected):
         if not p.exists():
             raise FileNotFoundError(p)
@@ -33,7 +38,7 @@ def build_submit(repo: Path, python: Path, selected: Path,
     return f"""universe = vanilla
 initialdir = {repo}
 executable = /bin/bash
-arguments = worker.sh $(era) $(topology) {python} {repo} {selected} {output}
+arguments = worker.sh {mode_arg}$(era) $(topology) {python} {repo} {selected} {output}
 getenv = False
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
@@ -41,9 +46,9 @@ transfer_input_files = {launcher}
 request_cpus = {int(cfg['cpus'])}
 request_memory = {cfg['memory']}
 request_disk = {cfg['disk']}
-output = {logs}/bdt_$(era)_$(topology)_$(ClusterId).out
-error = {logs}/bdt_$(era)_$(topology)_$(ClusterId).err
-log = {logs}/bdt_$(ClusterId).log
+output = {logs}/{prefix}_$(era)_$(topology)_$(ClusterId).out
+error = {logs}/{prefix}_$(era)_$(topology)_$(ClusterId).err
+log = {logs}/{prefix}_$(ClusterId).log
 notification = Never
 queue era,topology from (
 run2 resolved
@@ -64,6 +69,7 @@ def main():
         "--log-dir", type=Path,
         help="HTCondor-approved log directory (default: <repo>/condor/logs, not /data)",
     )
+    p.add_argument("--mode", choices=("train", "score"), default="train")
     p.add_argument("--submit", action="store_true")
     a = p.parse_args()
     repo, interpreter, selected, out = (
@@ -73,8 +79,8 @@ def main():
     # Condor event logs must not reside on Ceph. In AF, the input/model
     # files are on /data (Ceph), but the repository is on /home.
     logs = (a.log_dir if a.log_dir is not None else repo / "condor" / "logs").resolve()
-    spec = build_submit(repo, interpreter, selected, out, logs)
-    path = logs / "bdt_training.sub"
+    spec = build_submit(repo, interpreter, selected, out, logs, a.mode)
+    path = logs / ("bdt_training.sub" if a.mode == "train" else "bdt_oof.sub")
     path.write_text(spec)
     print(f"HTCondor submit file: {path}", flush=True)
     if a.submit:
