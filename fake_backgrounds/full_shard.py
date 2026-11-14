@@ -18,6 +18,7 @@ import gc
 import importlib
 import json
 import math
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -116,9 +117,19 @@ def run_source_file(*, manifest, source_root, legacy_repo, model_root,
     out_npz = Path(str(output_prefix) + ".npz")
     tmp_json = Path(str(output_prefix) + ".json.tmp")
     tmp_npz = Path(str(output_prefix) + ".npz.tmp")
-    for path in (out_json, out_npz, tmp_json, tmp_npz):
+    lock = Path(str(output_prefix) + ".running")
+    for path in (out_json, out_npz, tmp_json, tmp_npz, lock):
         if path.exists():
             raise FileExistsError(f"refuse to overwrite existing/incomplete shard: {path}")
+    output_prefix.parent.mkdir(parents=True, exist_ok=True)
+    # Atomic exclusive lock: concurrent or interrupted Condor jobs must never
+    # write the same shard. On failure the lock remains for manual diagnosis.
+    with lock.open("x") as handle:
+        handle.write(json.dumps({
+            "sample": sample, "ordinal": ordinal, "pid": os.getpid(),
+            "source_manifest": str(manifest),
+            "output_prefix": str(output_prefix),
+        }, sort_keys=True) + "\n")
     if sample not in SOURCES or ordinal <= 0:
         raise ValueError("invalid raw FakeSim source")
     if n_alpha < 1 or chunk_size < 1 or (max_events is not None and max_events < 1):
@@ -338,6 +349,7 @@ def run_source_file(*, manifest, source_root, legacy_repo, model_root,
     finally:
         tmp_npz.unlink(missing_ok=True)
         tmp_json.unlink(missing_ok=True)
+    lock.unlink()
     print(f"PASS: {result['status']} {sample} ord{ordinal:03d} "
           f"scored={diagnostics['scored_hypotheses']} "
           f"outside_old_Hbb_window={diagnostics['scored_outside_old_mass_window']}",
