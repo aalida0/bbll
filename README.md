@@ -539,7 +539,7 @@ minimum_mt_bins: 2
 
 # This separate setting applies only to matched_split_control:
 matched_split_control:
-  minimum_mt_bins: 1  # 1 allows cut-and-count; use 2 for shape-only
+  minimum_mt_bins: 2  # nominal default; set 1 only for one-bin diagnostic
 ```
 
 Allowing one bin is a **minimum**, not a command to force every category to
@@ -556,3 +556,15 @@ The resulting JSON explicitly records `minimum_boosted_mt_bins_configured`,
 `boosted_cut_and_count`, and the final common bin edges. The former Run-2
 3000 GeV 2-bin output is preserved; rerun the same command after `git pull`
 to produce the new `_minbin1.json` file.
+
+
+### Nominal SR shape policy (restored)
+
+The frozen nominal SR candidate-screen and prompt-only CLs comparison remain
+**minimum two mT(HH) bins per category**, with positive signed background
+and N_eff >= 10 per bin. The matched-split control also defaults to two bins
+again. The previous one-bin Run-2 m3000 study is retained solely as a
+separate cut-and-count diagnostic, not as a nominal SR or replacement limit.
+To reproduce that alternate diagnostic, change only
+`matched_split_control.minimum_mt_bins` to 1; do **not** change
+the top-level `minimum_mt_bins` or regenerate the frozen SR scan.
