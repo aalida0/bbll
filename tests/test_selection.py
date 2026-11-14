@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from stage1.selection import (
+from preselection.selection import (
     BRANCHES, CONFIG, STAGE, RESOLVED, BOOSTED, CAT2, CAT3, categories, reduce_sample
 )
 
@@ -91,7 +91,7 @@ def test_root_reduction_retains_signed_weights_and_dual_categories(tmp_path):
 
 
 def test_unified_frozen_publication_config():
-    from stage1.campaign import samples
+    from preselection.campaign import samples
 
     assert tuple(CONFIG["eras"]) == ("run2", "run3")
     assert CONFIG["eras"]["run2"]["luminosity_fb"] == 140.1

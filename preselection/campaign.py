@@ -1,4 +1,4 @@
-"""Reproduce Stage-1 selections for an era from the prepared ROOT campaign.
+"""Reproduce preselection for an era from the prepared ROOT campaign.
 
 No site-specific paths, batch queue, or environment setup are required.
 Optional old-reduction comparisons are a one-time audit, not needed by readers.

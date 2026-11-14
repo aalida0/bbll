@@ -1,4 +1,4 @@
-"""Stage 1: select bbll events once, retaining both category definitions.
+"""Preselection: select bbll events once, retaining both category definitions.
 
 Input: Analysis_NOSYS in a ROOT ntuple and its normalized-weight sidecar.
 Output: one selected ROOT tree with frozen ML inputs and both category IDs.
@@ -16,13 +16,13 @@ import numpy as np
 from bbll.config import load_config, load_stage_config
 
 CONFIG = load_config()
-STAGE = load_stage_config("stage1")
+STAGE = load_stage_config("preselection")
 CUTS = STAGE["selection"]
 if (CUTS["priority"] != "boosted" or CUTS["boosted_min_tags"] != 1
         or CUTS["hbb_mass_window_required"] is not False
         or CUTS["categories3"] != ["resolved", "boosted_1tag", "boosted_2tag"]
         or CUTS["categories2"] != ["resolved", "boosted"]):
-    raise ValueError("unsupported frozen Stage-1 selection")
+    raise ValueError("unsupported frozen preselection")
 INPUT = STAGE["input"]
 RESOLVED = tuple(CONFIG["features"]["resolved"])
 BOOSTED = tuple(CONFIG["features"]["boosted"])
