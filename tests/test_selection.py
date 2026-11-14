@@ -87,3 +87,4 @@ def test_root_reduction_retains_signed_weights_and_dual_categories(tmp_path):
     assert a["train_weight_base"].tolist() == [1., 2., 3., 4., 7.]
     assert np.isnan(a["min_dR_lepton_bjet"][3])
     assert a["event_uid"].tolist() == [0, 1, 2, 3, 6]
+    assert a["source_entry"].tolist() == [0, 1, 2, 3, 6]
