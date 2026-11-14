@@ -238,11 +238,17 @@ HTCondor event/STDOUT/STDERR logs default to \`<repo>/condor/logs/\`, **not**
 ROOT inputs and trained models may stay on \`/data\`. To choose an alternative
 approved log directory, use \`--log-dir\`.
 
-The generated submit file uses
-the selected Python interpreter and repository directory, **1 CPU, 16 GB memory,
-4 GB disk per job**, with BLAS/OpenMP thread counts limited to one. No worker
-needs network access, Docker or another git checkout; this assumes a shared
-filesystem (as in the historical AF campaign).
+The submission uses `should_transfer_files = YES` to avoid HTCondor's
+`FileSystemDomain` requirement when the login node and workers differ.
+It transfers only `bdt_training/worker.sh` and runs it through `/bin/bash`.
+The launcher calls the selected Python interpreter by its absolute path:
+therefore the repository, virtual environment and selected ROOT files **must
+still be accessible from worker nodes**, as in the historical UChicago AF
+workflow. It requests **1 CPU, 16 GB memory and 4 GB disk** per job, with
+BLAS/OpenMP threads limited to one.
+
+If a previous submission remains idle because of the filesystem-domain
+requirement, remove that old cluster before resubmitting to avoid duplicates.
 
 Outputs: \`results/models/<era>/<topology>/<variant>/fold0.pkl\` through
 \`fold4.pkl\`, \`features.txt\`, and \`training_metrics.json\`.
