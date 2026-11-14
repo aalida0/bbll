@@ -54,10 +54,10 @@ No historical FakeSim kappa is applied in this pilot, and the public ATLAS 13.6 
 
 - Exact track association and LargeR overlap caches are REQUIRED; their source basename and event-number closure are checked by the old adapter. Raw Delphes files do not eliminate this reconstruction requirement.
 - Incomplete semileptonic ttbar source events require the original exact skip manifest when producing full files. Skip without re-normalizing the source dataset.
-- Historical Run-3 FakeSim predictions had a genuine extra Hbb mass-window veto. Historical templates and calibration should not be copied directly. The new pilot records how many scored hypotheses fall outside the Hbb mass window.
+- Historical Run-3 FakeSim predictions had a genuine extra Hbb mass-window veto. Historical templates must not be copied directly. The historical public e-mu anchor is evaluated before the old mass-window gate, so its kappa may remain applicable if independently reproduced with the same sources and benchmark model. The new pilot records how many scored hypotheses fall outside the Hbb mass window.
 - The user reports raw Delphes outputs. Run-2 raw inputs and their proper provenance/cache/normalization are not yet verified; do not infer availability from the old Run-3 manifest.
 - Synthetic tests prove numerical mechanics and window removal, not physics closure on actual Run-2/Run-3 Delphes events.
-- A full campaign must evaluate all score candidate thresholds with master mT(HH) bins, not merely the prompt-only winners used for this pilot, and must validate source composition, prompt overlap, full correlated source-event moments, kappa re-calibration and model envelope.
+- A full campaign must evaluate all score candidate thresholds with master mT(HH) bins, not merely the prompt-only winners used for this pilot, and must validate source composition, prompt overlap, full correlated source-event moments, verification of the public-anchor kappa against the historical source normalization, and model envelope.
 - Current prompt-only mass scans, BDT models, and source event files remain unchanged. Fake templates are not integrated into the nominal pyhf likelihood yet.
 
 Next gate: run the inventory for one file from each of the three Run-3 source classes, then run the printed bounded pilot commands. Once real raw-source closure passes, adapt the existing full FakeSim Condor producer, including removal of the old mass-window veto, score inputs, normalization and fake-aware likelihood.
@@ -117,3 +117,29 @@ the current model and category. Zero high-BDT fake yield after only 100 source
 events is not a physics failure and cannot be extrapolated to full production.
 Full-source calibration, fake-aware optimization, and separate Run-2 input
 verification remain separate validation gates.
+
+## Real raw-file pilots (reported 2026-11-14)
+
+All three ordinal-1 files processed a 100-event real Delphes pilot without errors:
+
+| source | events | scored hypotheses | scored outside old Hbb window |
+| --- | ---: | ---: | ---: |
+| Wenu_b | 100 | 39 | 39 |
+| Wmunu_b | 100 | 122 | 79 |
+| ttbar_semileptonic | 100 | 420 | 210 |
+| TOTAL | 300 | 581 | 328 |
+
+These are hypothesis-level counts, not independent MC events or weighted yields. The 56.5% outside-window fraction cannot be used as a fractional fake-background correction. The selected 800 GeV pilot JSON files were written under the raw_pilots/run3 directory, but not directly inspected by this versioned source audit.
+
+**Next gate: full 400-file input audit before HTCondor.**
+
+    cd ~/bbll
+    git pull --ff-only
+    source .venv39/bin/activate
+    python -m fake_backgrounds.full_source_audit \
+      --manifest /data/aalida/bbll_ml/fakes/btag_provenance/run3_btag_provenance.json \
+      --source-root /data/aalida/bbll_ml/fakes \
+      --check-root-entries \
+      --output /data/aalida/bbll_rerun_20261114/fake_backgrounds/run3_full_source_inventory.json
+
+This checks 50 Wenu_b files + 50 Wmunu_b files + 300 semileptonic ttbar files, their exact track and LargeR caches, original normalization and two skipped ttbar events. Expect exactly 400 raw Delphes files and 4,000,000 generated source entries. If any are missing, it raises an error before submitting production.
