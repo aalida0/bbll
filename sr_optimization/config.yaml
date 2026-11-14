@@ -1,2 +1,25 @@
 schema_version: 1
-status: not_implemented
+status: prompt_only_candidate_screen
+# This is NOT a final expected-limit optimizer: fake and systematic models
+# are not yet implemented. Only candidate thresholds and robust binning.
+sources: bdt_scores
+score_branch: ml_score
+fit_observable: mt_hh_mH125
+signal_efficiency_grids:
+  resolved: [0.95, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.15, 0.10]
+  boosted: [0.95, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.15, 0.10]
+  boosted_1tag: [0.95, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.15, 0.10]
+  boosted_2tag: [0.95, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20]
+minimum_background_neff_per_bin: 10.0
+minimum_mt_bins: 2
+master_mt_edges_GeV: [
+  0, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
+  1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800,
+  1900, 2000, 2250, 2500, 2750, 3000, 3250, 3500,
+  3750, 4000, 4500, 5000, 6000, 10000
+]
+# Clip under/overflow to edge bins, matching validated development histograms.
+clip_underflow_overflow: true
+# Signal and background weights are scaled only for physical yield/fit templates,
+# not for quantile-based signal-efficiency thresholds.
+luminosity_policy: analysis_weights
