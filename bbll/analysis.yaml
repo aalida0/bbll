@@ -16,7 +16,7 @@ eras:
   run3:
     sqrt_s_TeV: 13.6
     luminosity_fb: 308.0
-    weights_luminosity_fb: 318.0
+    weights_luminosity_fb: 312.0
     rescale_weights: true
 
 # Validated publication Stage-1 counts for the full 26-sample input campaigns.
