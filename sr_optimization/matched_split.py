@@ -55,6 +55,31 @@ def boosted_histograms(data, era, mass, threshold, edges):
     return rows
 
 
+
+def merge_adjacent_bins(rows, boundary):
+    """Merge boundary-1 and boundary without rescanning millions of events."""
+    result = {}
+    for channel, row in rows.items():
+        item = dict(row)
+        for key in ("s", "s2", "b", "b2"):
+            values = np.asarray(row[key], dtype=np.float64)
+            if not (1 <= boundary < len(values)):
+                raise ValueError("invalid merge boundary")
+            merged = np.delete(values, boundary)
+            merged[boundary - 1] = values[boundary - 1] + values[boundary]
+            item[key] = merged
+        result[channel] = item
+
+    # Recheck sumw and sumw2 closure after each coarsening move.
+    inc = result["boosted"]
+    one, two = result["boosted_1tag"], result["boosted_2tag"]
+    for key in ("s", "s2", "b", "b2"):
+        if not np.allclose(inc[key], one[key] + two[key],
+                           rtol=5e-9, atol=1e-8):
+            raise ValueError(f"merged tag-split closure fails: {key}")
+    return result
+
+
 def invalid_template_reasons(rows, edges):
     """Guard all three views against negative yields and low signed N_eff."""
     reasons = []
@@ -133,7 +158,7 @@ def matched_templates(data, era, mass, threshold, original_edges,
         options = []
         for k in range(1, len(edges) - 1):
             trial = np.delete(edges, k)
-            trial_rows = boosted_histograms(data, era, mass, threshold, trial)
+            trial_rows = merge_adjacent_bins(rows, k)
             options.append((violation_score(trial_rows), k, trial, trial_rows))
         _, boundary, trial_edges, trial_rows = min(
             options, key=lambda x: (x[0][0], x[0][1], x[1])
