@@ -45,10 +45,12 @@
 > 3. Score FakeSim hypotheses with the **current** `bbll` frozen OOF
 >    5-fold model bank and features, not old trained-model score maps.
 >    Check model provenance, score features, and category closure.
-> 4. Calibrate to the cited *public* Run-3 ATLAS 13.6-TeV e-mu inclusive
->    fake/nonprompt anchor, with correct luminosity and source coverage.
->    Historical FakeSim normalization kappas cannot be presumed unchanged
->    once object selection changes.
+> 4. Verify the cited *public* Run-3 ATLAS 13.6-TeV e-mu inclusive
+>    calibration anchor and old kappa factors under identical source/weight/
+>    benchmark assumptions. The legacy full producer accumulates the e-mu
+>    anchor BEFORE the obsolete Hbb mass-window veto. Thus removing that
+>    veto changes SR templates, but not necessarily kappa. Verify anchor
+>    numerical closure before adopting or recomputing normalization.
 > 5. Rebuild matched Run-2/Run-3, mass-dependent fake templates and
 >    fake variation envelopes at the exhaustive candidate thresholds.
 >    Track source-level signed weights and event-level sumw2/covariance.
