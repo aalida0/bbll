@@ -1,7 +1,8 @@
-"""Generate a site-neutral HTCondor submit file for the four BDT banks.
+"""Generate a portable HTCondor file-transfer submit description.
 
-Shared filesystem is required for code, ROOT inputs, and output directories.
-The submit file uses absolute paths supplied by the caller, not site defaults.
+Only the small launcher is transferred to workers. The installed Python
+environment and ROOT data are referenced using worker-accessible absolute
+paths, following the older UChicago AF training setup.
 """
 
 from __future__ import annotations
@@ -25,14 +26,18 @@ def build_submit(repo: Path, python: Path, selected: Path,
     for p in (repo, python, selected, output, logs):
         if any(c.isspace() for c in str(p)):
             raise ValueError(f"HTCondor path contains whitespace: {p}")
+    launcher = repo / "bdt_training" / "worker.sh"
+    if not launcher.is_file():
+        raise FileNotFoundError(f"HTCondor launcher missing: {launcher}")
     logs.mkdir(parents=True, exist_ok=True)
     return f"""universe = vanilla
 initialdir = {repo}
-executable = {python}
-arguments = -m bdt_training.train $(era) $(topology) --selected-root {selected} --output-root {output}
+executable = /bin/bash
+arguments = worker.sh $(era) $(topology) {python} {repo} {selected} {output}
 getenv = False
-environment = "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1"
-should_transfer_files = NO
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files = {launcher}
 request_cpus = {int(cfg['cpus'])}
 request_memory = {cfg['memory']}
 request_disk = {cfg['disk']}
