@@ -145,3 +145,26 @@ def test_category_filtered_root_training_pool_with_all_48_signal_cells(tmp_path)
                 y[chosen], absw[chosen], mass[chosen],
                 decay[chosen], family[chosen],
             )))
+
+
+
+def test_submit_preserves_virtualenv_python_symlink(tmp_path, monkeypatch):
+    import sys
+    from bdt_training.submit import main
+
+    repo = tmp_path / "repo"
+    selected = tmp_path / "selected"
+    out = tmp_path / "results"
+    python = tmp_path / "venv" / "bin" / "python"
+    repo.mkdir()
+    selected.mkdir()
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
+
+    monkeypatch.setattr(sys, "argv", [
+        "submit.py", "--repo", str(repo), "--python", str(python),
+        "--selected-root", str(selected), "--output-root", str(out),
+    ])
+    main()
+    text = (out / "logs" / "bdt_training.sub").read_text()
+    assert f"executable = {python}" in text
