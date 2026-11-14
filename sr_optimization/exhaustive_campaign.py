@@ -89,6 +89,10 @@ def run_campaign(root, eras=ERAS, fits_per_shard=50, max_shards=32, mu_max=1e5):
             else:
                 doc = merge_mass(root, era, mass, n, mu_max)
                 validate_mass(root, era, mass)
+            if doc["mu_max"] != float(mu_max):
+                raise ValueError(
+                    f"{path}: mu_max differs from requested exhaustive campaign"
+                )
             a = doc["architectures"]
             two = a["two_channel"]["exhaustive_best_mu95"]
             three = a["three_channel"]["exhaustive_best_mu95"]
