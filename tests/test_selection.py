@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from bbll.selection import (
-    BRANCHES, RESOLVED, BOOSTED, CAT2, CAT3, categories, reduce_sample
+    BRANCHES, CONFIG, RESOLVED, BOOSTED, CAT2, CAT3, categories, reduce_sample
 )
 
 
@@ -88,3 +88,23 @@ def test_root_reduction_retains_signed_weights_and_dual_categories(tmp_path):
     assert np.isnan(a["min_dR_lepton_bjet"][3])
     assert a["event_uid"].tolist() == [0, 1, 2, 3, 6]
     assert a["source_entry"].tolist() == [0, 1, 2, 3, 6]
+
+
+def test_unified_frozen_publication_config():
+    from bbll.campaign import samples
+
+    assert tuple(CONFIG["eras"]) == ("run2", "run3")
+    assert CONFIG["eras"]["run2"]["luminosity_fb"] == 140.1
+    assert CONFIG["eras"]["run3"]["luminosity_fb"] == 312.0
+    assert len(samples("run2")) == len(samples("run3")) == 26
+    assert samples("run3")[0] == ("signal", "X400_run3")
+    assert samples("run2")[-1] == ("background", "ttbar_dil_run2")
+    assert CONFIG["selection"]["priority"] == "boosted"
+    assert CONFIG["selection"]["hbb_mass_window_required"] is False
+    assert "mt_hh_mH125" not in RESOLVED + BOOSTED
+    assert CONFIG["reference_selected_events"]["run2"] == {
+        "resolved": 8891378, "boosted": 6294727
+    }
+    assert CONFIG["reference_selected_events"]["run3"] == {
+        "resolved": 8899170, "boosted": 6225647
+    }
