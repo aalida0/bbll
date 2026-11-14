@@ -55,6 +55,12 @@ def plan(root, provenance, source_root, first_each=False,
         npz=Path(str(prefix)+".npz")
         tmpj=Path(str(prefix)+".json.tmp")
         tmpn=Path(str(prefix)+".npz.tmp")
+        running=Path(str(prefix)+".running")
+        if running.exists():
+            raise ValueError(
+                f"{prefix}: existing in-flight/failed .running lock; "
+                "inspect Condor status and source traceback before retrying"
+            )
         if jp.is_file() and npz.is_file():
             validate_full_shard(
                 prefix,row,source_root,grid_hash,grid["n_candidates"],n_mt,
