@@ -10,10 +10,10 @@ from bbll.config import analysis_weights, load_config, luminosity_scale
 
 def test_run3_lumi_scale_on_and_off_without_mutating_raw_weights():
     cfg = load_config()
-    raw = np.array([318.0, -159.0, 0.0], dtype=np.float64)
+    raw = np.array([312.0, -156.0, 0.0], dtype=np.float64)
     preserved = raw.copy()
 
-    assert luminosity_scale("run3", cfg) == 308.0 / 318.0
+    assert luminosity_scale("run3", cfg) == 308.0 / 312.0
     np.testing.assert_allclose(analysis_weights(raw, "run3", cfg),
                                [308.0, -154.0, 0.0])
     np.testing.assert_array_equal(raw, preserved)
