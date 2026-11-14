@@ -23,7 +23,7 @@ from bdt_training.score import model_bank
 from sr_optimization.exhaustive_campaign import validate_mass
 
 SOURCES = ("Wenu_b", "Wmunu_b", "ttbar_semileptonic")
-CHANNELS = ("resolved", "boosted", "boosted_1tag", "boosted_2tag")
+CHANNELS = ("resolved", "resolved_two_channel", "boosted", "boosted_1tag", "boosted_2tag")
 CATEGORIES = ("resolved", "boosted_1tag", "boosted_2tag")
 
 
@@ -104,8 +104,9 @@ def frozen_winners(root, era, mass):
     doc = validate_mass(root, era, mass)
     winners = {}
     for channel in CHANNELS:
-        arch = "two_channel" if channel == "boosted" else "three_channel"
-        row = doc["architectures"][arch]["best_candidates"][channel]
+        arch = "two_channel" if channel in ("boosted", "resolved_two_channel") else "three_channel"
+        original = "resolved" if channel == "resolved_two_channel" else channel
+        row = doc["architectures"][arch]["best_candidates"][original]
         edges = np.asarray(row["mt_edges_GeV"], dtype=np.float64)
         if len(edges) < 3 or not np.all(np.diff(edges) > 0):
             raise ValueError(f"nominal {channel} mT bins invalid")
@@ -256,7 +257,10 @@ def run_pilot(*, raw_root, legacy_repo, model_root, output_root,
                             diagnostics["hypotheses_scored"] += 1
                             if not hypo["hbb_topology"]["pass_hbb_mass_window"]:
                                 diagnostics["outside_hbb_window_scored"] += 1
-                            chs = ("resolved",) if cat == "resolved" else ("boosted", cat)
+                            # Preserve separate resolved cuts/bins for the
+                            # two-channel and three-channel optimizations.
+                            chs = (("resolved", "resolved_two_channel")
+                                   if cat == "resolved" else ("boosted", cat))
                             mt = float(hypo["observables"]["mt_hh_mH125"])
                             for ch in chs:
                                 info = winners[ch]
