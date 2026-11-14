@@ -33,3 +33,10 @@ condor:
   cpus: 1
   memory: 16GB
   disk: 4GB
+
+# Held-out-fold scores are materialized for EVERY selected event, not only
+# the 1/10 training subsample. Original signed physics weights are preserved.
+scoring:
+  chunk_size: "150 MB"
+  output_subdir: "bdt_scores"
+  condor: {cpus: 1, memory: 8GB, disk: 4GB}
