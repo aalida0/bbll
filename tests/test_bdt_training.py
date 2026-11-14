@@ -80,3 +80,68 @@ def test_condor_has_four_jobs_and_no_site_specific_path(tmp_path):
     assert "should_transfer_files = NO" in spec
     assert "/home/aalida/" not in spec
     assert "AF.uchicago" not in spec
+
+
+
+def test_category_filtered_root_training_pool_with_all_48_signal_cells(tmp_path):
+    """Verify the new selected-ROOT reader is equivalent to topology reduction."""
+    import json
+    import uproot
+    from bdt_training.train import read_pool
+
+    ana = load_config()
+    folder = tmp_path / "selected" / "run3"
+    folder.mkdir(parents=True)
+    stems = (
+        [f"X{m}_run3" for m in SIGNAL_MASSES]
+        + [f"{p}_run3" for p in ana["samples"]["prompt_backgrounds"]]
+    )
+    all_features = list(dict.fromkeys(
+        ana["features"]["resolved"] + ana["features"]["boosted"]
+    ))
+    for stem in stems:
+        mass = int(stem.split("_")[0][1:]) if stem.startswith("X") else 0
+        sig = mass > 0
+        uid, tags, decays = [], [], []
+        # Every fold, every signal decay, with resolved + two boosted categories.
+        for fold in range(5):
+            for decay in (0, 1, 2) if sig else (0,):
+                for cat in (0, 1, 2):
+                    uid.append(50 * len(uid) + fold)  # training sample passes 1/10
+                    tags.append(cat)
+                    decays.append(decay if sig else -1)
+        # A resolved event excluded by deterministic 1/10 bulk subsampling.
+        # The rare 'other' background group keeps it, as in the frozen trainer.
+        uid.append(5005)
+        tags.append(0)
+        decays.append(-1 if not sig else 0)
+        n = len(uid)
+        a = {f: np.ones(n, dtype=np.float32) for f in all_features}
+        a.update({
+            "event_uid": np.asarray(uid, dtype=np.uint64),
+            "category3": np.asarray(tags, dtype=np.int8),
+            "is_signal": np.full(n, sig, dtype=np.bool_),
+            "signal_mass_GeV": np.full(n, mass, dtype=np.int16),
+            "signal_decay_id": np.asarray(decays, dtype=np.int8),
+            "train_weight_base": np.ones(n, dtype=np.float64),
+        })
+        with uproot.recreate(folder / f"{stem}.root") as f:
+            f.mktree("events", {key: value.dtype for key, value in a.items()}).extend(a)
+    (folder / "selection_campaign.json").write_text(json.dumps({
+        "status": "PASS", "era": "run3", "n_samples": len(stems),
+        "category2_counts": ana["reference_selected_events"]["run3"],
+    }))
+    for topology, expected_sig in (("resolved", 240), ("boosted", 480)):
+        x, y, absw, fold, mass, decay, family = read_pool(
+            tmp_path / "selected", "run3", topology
+        )
+        assert x.shape[1] == (20 if topology == "resolved" else 25)
+        assert np.count_nonzero(y) == expected_sig
+        assert set(fold.tolist()) == set(range(5))
+        assert set(mass[y == 1].tolist()) == set(SIGNAL_MASSES)
+        for k in range(5):
+            chosen = fold == k
+            assert np.all(np.isfinite(balance(
+                y[chosen], absw[chosen], mass[chosen],
+                decay[chosen], family[chosen],
+            )))
