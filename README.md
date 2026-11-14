@@ -229,10 +229,16 @@ hardcoding site paths, then submit:
 python -m bdt_training.submit \
   --selected-root /path/to/selected \
   --output-root /path/to/results
-condor_submit /path/to/results/logs/bdt_training.sub
+condor_submit /path/to/repo/condor/logs/bdt_training.sub
 \`\`\`
 
-Or add \`--submit\` to the first command. The generated submit file uses
+Or add \`--submit\` to the first command. The generated submit file and
+HTCondor event/STDOUT/STDERR logs default to \`<repo>/condor/logs/\`, **not**
+\`<output-root>/logs/\`. On UChicago AF, Condor cannot log to Ceph (\`/data\`).
+ROOT inputs and trained models may stay on \`/data\`. To choose an alternative
+approved log directory, use \`--log-dir\`.
+
+The generated submit file uses
 the selected Python interpreter and repository directory, **1 CPU, 16 GB memory,
 4 GB disk per job**, with BLAS/OpenMP thread counts limited to one. No worker
 needs network access, Docker or another git checkout; this assumes a shared
