@@ -191,8 +191,11 @@ def test_submit_preserves_virtualenv_python_symlink(tmp_path, monkeypatch):
         "--selected-root", str(selected), "--output-root", str(out),
     ])
     main()
-    text = (out / "logs" / "bdt_training.sub").read_text()
+    submit_file = repo / "condor" / "logs" / "bdt_training.sub"
+    text = submit_file.read_text()
     assert f"executable = {python}" in text
+    assert f"log = {repo}/condor/logs/bdt_$(ClusterId).log" in text
+    assert str(out / "logs") not in text
 
 
 def test_reference_environment_rejects_mixed_python_packages():
@@ -219,3 +222,27 @@ def test_reference_environment_rejects_mixed_python_packages():
             python="3.9", numpy_version="2.2.0", sklearn_version="1.6.1",
             paths=["/clean"],
         )
+
+
+def test_submit_respects_explicit_nondefault_log_dir(tmp_path, monkeypatch):
+    import sys
+    from bdt_training.submit import main
+
+    repo, selected, results, logs = (
+        tmp_path / "repo", tmp_path / "selected",
+        tmp_path / "ceph_results", tmp_path / "scheduler_logs"
+    )
+    repo.mkdir()
+    selected.mkdir()
+    monkeypatch.setattr(sys, "argv", [
+        "submit.py", "--repo", str(repo),
+        "--selected-root", str(selected),
+        "--output-root", str(results),
+        "--log-dir", str(logs),
+    ])
+    main()
+    assert (logs / "bdt_training.sub").exists()
+    txt = (logs / "bdt_training.sub").read_text()
+    assert f"output = {logs}/bdt_$(era)_$(topology)_$(ClusterId).out" in txt
+    assert f"--output-root {results}" in txt
+    assert not (results / "logs").exists()
