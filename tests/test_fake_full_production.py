@@ -272,3 +272,32 @@ def test_balanced_source_interleaving_for_subset():
         rows, sample_names=("ttbar_semileptonic",)
     )
     assert [r["ordinal"] for r in result] == [11, 12]
+
+
+def test_condor_active_batch_guard_refuses_pending_or_unreadable_jobs(
+        monkeypatch):
+    from types import SimpleNamespace
+
+    def simulate(stdout, code=0):
+        def run(cmd, **kwargs):
+            assert cmd[:3] == ["condor_q", "-json", "-constraint"]
+            assert "bbll_run3_fakesim_raw_current" in cmd[3]
+            return SimpleNamespace(
+                returncode=code, stdout=stdout, stderr="condor offline"
+            )
+        monkeypatch.setattr(full_submit.subprocess, "run", run)
+
+    simulate("[]")
+    full_submit.ensure_no_active_fakesim_jobs()
+
+    simulate('[{"ClusterId":4273766,"ProcId":0}]')
+    with pytest.raises(RuntimeError, match="still queued/running"):
+        full_submit.ensure_no_active_fakesim_jobs()
+
+    simulate("garbled output")
+    with pytest.raises(RuntimeError, match="unparseable condor_q"):
+        full_submit.ensure_no_active_fakesim_jobs()
+
+    simulate("[]", code=1)
+    with pytest.raises(RuntimeError, match="cannot check active"):
+        full_submit.ensure_no_active_fakesim_jobs()
