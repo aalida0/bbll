@@ -231,7 +231,11 @@ def test_submit_batch_uses_output_root_and_refuses_existing_queue(
     assert str(output/"fake_backgrounds"/"full_shards") in queue.read_text()
     text=sub.read_text()
     assert "request_memory = 6000MB" in text
-    assert "should_transfer_files = NO" in text
+    assert "should_transfer_files = YES" in text
+    assert "when_to_transfer_output = ON_EXIT" in text
+    assert "transfer_input_files = " + str(root/"fake_backgrounds"/"full_worker.sh") in text
+    assert "arguments = full_worker.sh $(sample) $(ordinal) $(prefix)" in text
+    assert "should_transfer_files = NO" not in text
     assert "queue sample,ordinal,prefix from" in text
     with pytest.raises(FileExistsError):
         full_submit.render_submit(root,output,sample)
