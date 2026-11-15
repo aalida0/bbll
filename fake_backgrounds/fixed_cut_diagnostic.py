@@ -258,6 +258,13 @@ def main():
               f"prompt_mu95={item['prompt_only_mu95']:.6g} "
               f"fake_mu95={item['fake_aware_fixed_cut_mu95']} "
               f"ratio={item['fake_over_prompt_fixed_cut_limit_ratio']}")
+        for ch in item["channels"]:
+            print("    {}: prompt={:.6g}, fake={:.6g}, fake_frac={:.4g}, "
+                  "min_total_Neff={:.4g}, max_MC_corr={:.4g}".format(
+                ch["channel"], ch["prompt_total"], ch["fake_total"],
+                ch["fake_fraction"], ch["minimum_total_neff"],
+                ch["max_abs_mc_correlation"]
+            ))
         if item["error"]:
             print(f"    BLOCKER: {item['error']}")
     print(f"Saved {dest}")
