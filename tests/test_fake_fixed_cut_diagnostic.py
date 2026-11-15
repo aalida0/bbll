@@ -66,7 +66,7 @@ def test_pyhf_template_contains_two_correlated_fake_nuisances():
     second["channel"]="boosted_1tag"
     workspace=diag.workspace_for([first,second])
     assert set(workspace.channels)=={"resolved","boosted_1tag"}
-    spec=workspace.spec
+    spec=workspace
     for channel in spec["channels"]:
         nuis={x["name"]:x for x in channel["samples"][1]["modifiers"]}
         assert "fake_norm" in nuis
