@@ -95,7 +95,9 @@ def render_submit(root, output_root, rows):
     root=Path(root)
     output_root=Path(output_root)
     batch_payload = "|".join("{}:{}".format(row["sample"], int(row["ordinal"])) for row in rows)
-    batch_id=hashlib.sha256(batch_payload.encode()).hexdigest()[:12]
+    # Scheduler revision is part of the batch namespace: do not collide
+    # with old NO-transfer jobs whose files were already generated.
+    batch_id=hashlib.sha256(("transfer-v2|" + batch_payload).encode()).hexdigest()[:12]
     work=root/"condor"/"work"/"run3_fakesim_current"/("batch_"+batch_id)
     logs=root/"condor"/"logs"/"run3_fakesim_current"
     worker=root/"fake_backgrounds"/"full_worker.sh"
@@ -124,10 +126,14 @@ def render_submit(root, output_root, rows):
     spec=(
         "universe = vanilla\n"
         "executable = /bin/bash\n"
-        "arguments = "+_safe_condor_token(worker)+" $(sample) $(ordinal) $(prefix)\n"
+        "arguments = full_worker.sh $(sample) $(ordinal) $(prefix)\n"
         "initialdir = "+_safe_condor_token(root)+"\n"
         "getenv = True\n"
-        "should_transfer_files = NO\n"
+        # Mirrors the proven legacy bbll-ml-sr AF recipe: transfer only the
+        # lightweight wrapper; source ROOT/caches/models remain on AF /data.
+        "transfer_input_files = "+_safe_condor_token(worker)+"\n"
+        "should_transfer_files = YES\n"
+        "when_to_transfer_output = ON_EXIT\n"
         "request_cpus = 1\n"
         "request_memory = 6000MB\n"
         "request_disk = 4000MB\n"
