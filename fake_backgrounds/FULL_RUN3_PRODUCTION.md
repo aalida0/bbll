@@ -181,3 +181,39 @@ resubmitting. For the reported earlier cluster:
 Batch IDs are versioned by scheduler transfer recipe to avoid colliding
 with the earlier three-job submit file. Do NOT remove unrelated jobs.
 Use condor_q -better-analyze on a newly returned job if it remains idle.
+
+## Numerical gate after the three complete 10k-event source files
+
+The reported Run-3 complete-source jobs produced 10,000 events per source,
+with 22,825 / 18,478 / 66,315 scored hypotheses for Wenu_b / Wmunu_b /
+semileptonic ttbar, and no skips in those initial source files. These are
+hypotheses, not independent event-level counts or calibrated yields.
+
+Before submitting 397 remaining jobs, run the strict three-file numerical
+validator to inspect source-event covariance, current frozen model hashes,
+original normalization identities, 29 fb^-1 public e-mu anchor contributions,
+and uncalibrated 800 GeV thresholded fake yields:
+
+    cd ~/bbll
+    git pull --ff-only
+    source .venv39/bin/activate
+    python -m fake_backgrounds.validate_three_shards \\
+      --output-root /data/aalida/bbll_rerun_20261114 \\
+      --report /data/aalida/bbll_rerun_20261114/fake_backgrounds/run3_three_shard_validation.json
+
+Expected status: RUN3_FAKESIM_THREE_FULL_SHARDS_NUMERICAL_PASS.
+It does **not** mean the fake kappa is validated: that requires all 400 files.
+Individual source/model/candidate fake bins may be zero in 10k events and
+are reported rather than silently floored or interpreted as zero uncertainty.
+
+If the gate passes, prefer a first resumed production batch of 32 jobs:
+
+    python -m fake_backgrounds.full_submit --max-jobs 32
+    python -m fake_backgrounds.full_submit --max-jobs 32 --submit
+
+Wait until the batch has completed, inspect Condor exit codes and verify all
+new shards using the dry-run planner before resubmitting the next batch.
+Do not delete .running locks for incomplete jobs without diagnosing logs.
+After one successful 32-file batch, the remaining sources can be queued
+using the standard no-cap full_submit --submit if pool etiquette permits.
+
