@@ -239,3 +239,36 @@ def test_submit_batch_uses_output_root_and_refuses_existing_queue(
     assert "queue sample,ordinal,prefix from" in text
     with pytest.raises(FileExistsError):
         full_submit.render_submit(root,output,sample)
+
+
+def test_balanced_source_interleaving_preserves_all_jobs_and_source_coverage():
+    from collections import Counter
+
+    rows = (
+        [{"sample": "Wenu_b", "ordinal": i} for i in range(1, 50)]
+        + [{"sample": "Wmunu_b", "ordinal": i} for i in range(1, 50)]
+        + [{"sample": "ttbar_semileptonic", "ordinal": i}
+           for i in range(1, 300)]
+    )
+    mixed = full_submit.interleave_source_classes(rows)
+    assert Counter((r["sample"], r["ordinal"]) for r in mixed) == Counter(
+        (r["sample"], r["ordinal"]) for r in rows
+    )
+    assert Counter(r["sample"] for r in mixed[:32]) == {
+        "Wenu_b": 11,
+        "Wmunu_b": 11,
+        "ttbar_semileptonic": 10,
+    }
+    assert [r["ordinal"] for r in mixed if r["sample"] == "Wenu_b"] == list(
+        range(1, 50)
+    )
+    assert mixed[-1]["sample"] == "ttbar_semileptonic"
+
+
+def test_balanced_source_interleaving_for_subset():
+    rows = [{"sample": "ttbar_semileptonic", "ordinal": 12},
+            {"sample": "ttbar_semileptonic", "ordinal": 11}]
+    result = full_submit.interleave_source_classes(
+        rows, sample_names=("ttbar_semileptonic",)
+    )
+    assert [r["ordinal"] for r in result] == [11, 12]
