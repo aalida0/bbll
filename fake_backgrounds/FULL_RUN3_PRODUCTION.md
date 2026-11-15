@@ -149,3 +149,35 @@ in the input, reconstruction or proxy explains and revalidates the change.
 
 Neither the current 61+ unit test suite nor the full-source inventory check
 validates final Delphes fake probabilities or publication-grade limits.
+
+## AF Condor filesystem-domain issue, fixed in full_submit.py
+
+UChicago AF submit host advertises FileSystemDomain=nfs.af.uchicago.edu.
+Using should_transfer_files=NO forces FileSystemDomain equality,
+which yielded ZERO matching slots even though /data and /home were
+visible to actual execute workers in the older successful campaign.
+
+The current submission template follows the proven older workflow:
+
+    executable = /bin/bash
+    arguments = full_worker.sh $(sample) $(ordinal) $(prefix)
+    transfer_input_files = /home/aalida/bbll/fake_backgrounds/full_worker.sh
+    should_transfer_files = YES
+    when_to_transfer_output = ON_EXIT
+
+Only the small worker script is transferred; it executes in the AF
+shared installation and reads raw Delphes /data source files directly.
+
+If a three-job cluster from the earlier NO-transfer configuration is
+still queued, check with condor_q and remove THAT cluster before
+resubmitting. For the reported earlier cluster:
+
+    condor_q 4273585
+    condor_rm 4273585
+    cd ~/bbll && git pull --ff-only
+    source .venv39/bin/activate
+    python -m fake_backgrounds.full_submit --one-per-sample --submit
+
+Batch IDs are versioned by scheduler transfer recipe to avoid colliding
+with the earlier three-job submit file. Do NOT remove unrelated jobs.
+Use condor_q -better-analyze on a newly returned job if it remains idle.
