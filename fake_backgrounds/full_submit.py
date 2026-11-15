@@ -175,6 +175,35 @@ def render_submit(root, output_root, rows):
     return submit_file,queue_file
 
 
+def ensure_no_active_fakesim_jobs():
+    """Refuse duplicate submissions while an earlier FakeSim batch is queued.
+
+    The submit host may have pending jobs with no .running lock yet.
+    This complements the on-worker exclusive shard locks.
+    """
+    command = [
+        "condor_q", "-json", "-constraint",
+        'JobBatchName == "bbll_run3_fakesim_raw_current"',
+    ]
+    result = subprocess.run(command, text=True, capture_output=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(
+            "cannot check active FakeSim Condor jobs; not safe to resubmit: "
+            + result.stderr.strip()
+        )
+    try:
+        jobs = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("unparseable condor_q JSON, refusing resubmission") from exc
+    if not isinstance(jobs, list):
+        raise RuntimeError("unexpected condor_q response")
+    if jobs:
+        raise RuntimeError(
+            f"{len(jobs)} FakeSim jobs still queued/running in HTCondor; "
+            "complete or remove the existing batch before resubmitting"
+        )
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--repo",type=Path,default=Path("/home/aalida/bbll"))
@@ -190,6 +219,8 @@ def main():
     p.add_argument("--max-jobs",type=int)
     p.add_argument("--submit",action="store_true")
     args=p.parse_args()
+    if args.submit:
+        ensure_no_active_fakesim_jobs()
     params=plan(args.output_root,args.manifest,args.source_root,
                 first_each=args.one_per_sample,
                 samples=args.samples,max_jobs=args.max_jobs)
