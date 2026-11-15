@@ -113,5 +113,5 @@ def test_mass_report_preserves_all_candidates_and_rejects_stale_inventory(
     assert all(not x["benchmarks"]["dror2016_global"]["negative_bins"]
                for x in result["candidates"])
     grid["fakesim_candidate_rows"].pop()
-    with pytest.raises(ValueError,match="incomplete mass coverage"):
+    with pytest.raises(ValueError,match="missing/duplicated frozen fake cut"):
         pr.mass_report(tmp_path,800)
