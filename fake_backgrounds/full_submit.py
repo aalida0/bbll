@@ -31,6 +31,30 @@ def _safe_condor_token(value):
     return token
 
 
+def interleave_source_classes(rows, sample_names=tuple(EXPECTED_RUN3_FILES)):
+    """Deterministically rotate between fake-source classes for capped batches.
+
+    The original lexicographic ordering chose 32 Wenu jobs before Wmunu/ttbar.
+    No change to per-source identity, output path, weights or reconstruction.
+    """
+    from collections import deque
+
+    groups = {
+        name: deque(sorted(
+            (r for r in rows if r["sample"] == name),
+            key=lambda r: int(r["ordinal"]),
+        )) for name in sample_names
+    }
+    result = []
+    while any(groups.values()):
+        for name in sample_names:
+            if groups[name]:
+                result.append(groups[name].popleft())
+    if len(result) != len(rows):
+        raise RuntimeError("source interleaving dropped or duplicated a row")
+    return result
+
+
 def plan(root, provenance, source_root, first_each=False,
          samples=None, max_jobs=None):
     root=Path(root)
@@ -71,7 +95,11 @@ def plan(root, provenance, source_root, first_each=False,
             raise ValueError(f"partial or interrupted FakeSim job: {prefix}")
         else:
             incomplete.append(row)
-    selected=[row for row in incomplete if row["sample"] in permitted]
+    selected=interleave_source_classes(
+        [row for row in incomplete if row["sample"] in permitted],
+        sample_names=tuple(name for name in EXPECTED_RUN3_FILES
+                           if name in permitted),
+    )
     if first_each:
         first={}
         for row in selected:
@@ -173,6 +201,7 @@ def main():
     print(f"remaining/unchecked     : {params['unfinished']}")
     print(f"jobs selected           : {len(selection)}")
     print(f"valid SR score candidates: {params['grid']['n_candidates']}")
+    print("batch selection policy  : balanced source-class round robin")
     print("selected by source      : " + ", ".join(
         f"{name}={sum(r['sample']==name for r in selection)}"
         for name in EXPECTED_RUN3_FILES
